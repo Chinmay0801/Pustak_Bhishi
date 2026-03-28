@@ -193,8 +193,8 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-6xl p-6 mx-auto mt-8">
-      <h1 className="mb-6 text-3xl font-bold text-gray-800">Settings</h1>
+    <div className="max-w-6xl p-6 mx-auto mt-8 text-gray-900">
+      <h1 className="mb-6 text-3xl font-bold text-gray-900">Settings</h1>
 
       {/* Tabs */}
       <div className="flex px-2 mb-6 space-x-4 border-b border-gray-200">
@@ -218,9 +218,9 @@ export default function Settings() {
       {activeTab === 'profile' && (
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           {/* Profile Form */}
-          <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm text-gray-900">
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Personal Information</h2>
+              <h2 className="text-xl font-bold text-gray-900">Personal Information</h2>
               <button
                 onClick={async () => { await logout(); navigate('/login'); }}
                 className="md:hidden px-3 py-1.5 text-xs font-bold text-red-600 border border-red-600 rounded bg-red-50 hover:bg-red-100 transition-colors"
@@ -231,7 +231,7 @@ export default function Settings() {
             </div>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Display Name</label>
+                <label className="block text-sm font-bold text-gray-900">Display Name</label>
                 <input
                   type="text"
                   value={displayName}
@@ -241,7 +241,7 @@ export default function Settings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                <label className="block text-sm font-bold text-gray-900">Phone Number</label>
                 <input
                   type="tel"
                   value={phoneNumber}
@@ -251,7 +251,7 @@ export default function Settings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Display Language</label>
+                <label className="block text-sm font-bold text-gray-900">Display Language</label>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
@@ -281,8 +281,8 @@ export default function Settings() {
           </div>
 
           {/* Borrow History */}
-          <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="mb-4 text-xl font-bold text-gray-800">My Borrow History</h2>
+          <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm text-gray-900">
+            <h2 className="mb-4 text-xl font-bold text-gray-900">My Borrow History</h2>
             {loadingHistory ? (
               <p className="text-gray-500">Loading history...</p>
             ) : pastTransactions.length === 0 ? (

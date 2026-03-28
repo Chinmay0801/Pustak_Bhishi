@@ -181,9 +181,9 @@ export default function Home() {
           <p className="mt-2 text-sm text-gray-400">Try a different query or reset the filters.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredBooks.map(book => (
-            <div key={book.id} className="relative flex flex-col p-5 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 text-gray-900">
+      {filteredBooks.map(book => (
+        <div key={book.id} className="relative flex flex-col p-5 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
               
               {userProfile?.isAdmin && (
                 <button 
@@ -209,10 +209,10 @@ export default function Home() {
                 </span>
               </div>
               
-              <h3 className="mt-3 text-lg font-bold text-gray-800 line-clamp-2">{book.title}</h3>
-              <p className="mt-1 text-sm font-medium text-gray-600">{book.author}</p>
+              <h3 className="mt-3 text-lg font-bold text-gray-900 line-clamp-2">{book.title}</h3>
+              <p className="mt-1 text-sm font-bold text-gray-700">{book.author}</p>
               
-              <div className="pt-4 mt-auto mb-4 space-y-1 text-xs text-gray-500">
+              <div className="pt-4 mt-auto mb-4 space-y-1 text-xs text-gray-700">
                 {book.contributor && (
                   <p><span className="font-semibold text-gray-700">भिशी (Donor):</span> {book.contributor}</p>
                 )}

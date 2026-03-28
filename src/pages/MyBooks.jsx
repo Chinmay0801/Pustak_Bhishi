@@ -46,8 +46,8 @@ export default function MyBooks() {
   }
 
   return (
-    <div className="max-w-4xl p-6 mx-auto mt-8 bg-white rounded-lg shadow-md">
-      <h1 className="mb-6 text-3xl font-bold text-gray-800">My Borrowed Books</h1>
+    <div className="max-w-4xl p-6 mx-auto mt-8 bg-white rounded-lg shadow-md text-gray-900">
+      <h1 className="mb-6 text-3xl font-bold text-gray-900">My Borrowed Books</h1>
       
       {error ? (
         <div className="p-6 text-red-700 bg-red-100 rounded-lg border border-red-200">

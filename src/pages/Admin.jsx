@@ -175,13 +175,13 @@ export default function Admin() {
   });
 
   return (
-    <div className="max-w-6xl p-6 mx-auto mt-8 bg-white rounded-lg shadow-md">
-      <h1 className="mb-6 text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+    <div className="max-w-6xl p-6 mx-auto mt-8 bg-white rounded-lg shadow-md text-gray-900">
+      <h1 className="mb-6 text-2xl font-bold text-gray-900">Admin Dashboard</h1>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Bulk Import Section */}
-        <div className="p-6 border border-gray-200 rounded-lg">
-          <h2 className="mb-4 text-xl font-semibold">Bulk Import (Excel)</h2>
+        <div className="p-6 border border-gray-200 rounded-lg text-gray-900">
+          <h2 className="mb-4 text-xl font-bold text-gray-900">Bulk Import (Excel)</h2>
           <p className="mb-4 text-sm text-gray-600">
             Select the <code className="px-1 bg-gray-100 rounded">Books_Data.xlsx</code> file containing the Marathi records.
           </p>
@@ -211,8 +211,8 @@ export default function Admin() {
         </div>
 
         {/* Dummy Data Section */}
-        <div className="p-6 border border-gray-200 rounded-lg">
-          <h2 className="mb-4 text-xl font-semibold">Test Data</h2>
+        <div className="p-6 border border-gray-200 rounded-lg text-gray-900">
+          <h2 className="mb-4 text-xl font-bold text-gray-900">Test Data</h2>
           <p className="mb-4 text-sm text-gray-600">
             Load initial dummy data into the Firestore database for testing purposes.
           </p>
@@ -228,8 +228,8 @@ export default function Admin() {
       </div>
 
       {/* Admin Return Management */}
-      <div className="p-6 mt-8 border border-gray-200 rounded-lg">
-        <h2 className="mb-4 text-xl font-semibold text-gray-800">Active Borrowed Books (Library Wide)</h2>
+      <div className="p-6 mt-8 border border-gray-200 rounded-lg text-gray-900">
+        <h2 className="mb-4 text-xl font-bold text-gray-900">Active Borrowed Books (Library Wide)</h2>
         <p className="mb-4 text-sm text-gray-600">
           Monitor all books currently checked out by members. Process physical returns here.
         </p>
@@ -295,11 +295,11 @@ export default function Admin() {
       </div>
 
       {/* Bulk Manage Catalog */}
-      <div className="p-6 mt-8 border border-gray-200 rounded-lg">
+      <div className="p-6 mt-8 border border-gray-200 rounded-lg text-gray-900">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
           <div className="flex-1">
-            <h2 className="text-xl font-semibold text-gray-800">Library Catalog (Bulk Manage)</h2>
-            <p className="text-sm text-gray-600">
+            <h2 className="text-xl font-bold text-gray-900">Library Catalog (Bulk Manage)</h2>
+            <p className="text-sm text-gray-700">
               Select multiple books to delete them permanently from the database.
             </p>
           </div>

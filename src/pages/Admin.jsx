@@ -14,13 +14,14 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState(0);
-  
+
   const [activeBorrows, setActiveBorrows] = useState([]);
   const [borrowsLoading, setBorrowsLoading] = useState(true);
   const [borrowsError, setBorrowsError] = useState(null);
 
   const [libraryBooks, setLibraryBooks] = useState([]);
   const [libraryLoading, setLibraryLoading] = useState(true);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -87,10 +88,10 @@ export default function Admin() {
         const workbook = xlsx.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        
+
         // Read the excel data (skipping the first row because it has headers)
         const jsonData = xlsx.utils.sheet_to_json(worksheet);
-        
+
         setMessage(`Uploading ${jsonData.length} books...`);
         let importedCount = 0;
 
@@ -126,7 +127,7 @@ export default function Admin() {
 
   async function handleAdminReturn(transaction) {
     if (!window.confirm(`Are you sure you want to mark "${transaction.bookTitle}" as returned?`)) return;
-    
+
     try {
       await returnBook(transaction.bookId, transaction.id);
       alert("Book marked as returned successfully!");
@@ -138,7 +139,7 @@ export default function Admin() {
   }
 
   function toggleSelection(id) {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   }
@@ -161,17 +162,22 @@ export default function Admin() {
       alert(`Successfully deleted ${selectedIds.length} books.`);
       fetchLibraryBooks();
       fetchActiveBorrows(); // refresh just in case
-    } catch (err) {
-      alert("Error deleting books: " + err.message);
     } finally {
       setBulkDeleting(false);
     }
   }
 
+  const filteredLibraryBooks = libraryBooks.filter(book => {
+    const query = adminSearchQuery.trim().toLowerCase();
+    return query === '' || [book.title, book.author, book.bookNumber]
+      .filter(Boolean)
+      .some(field => field.toLowerCase().includes(query));
+  });
+
   return (
     <div className="max-w-6xl p-6 mx-auto mt-8 bg-white rounded-lg shadow-md">
       <h1 className="mb-6 text-2xl font-bold text-gray-800">Admin Dashboard</h1>
-      
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Bulk Import Section */}
         <div className="p-6 border border-gray-200 rounded-lg">
@@ -179,20 +185,20 @@ export default function Admin() {
           <p className="mb-4 text-sm text-gray-600">
             Select the <code className="px-1 bg-gray-100 rounded">Books_Data.xlsx</code> file containing the Marathi records.
           </p>
-          
+
           <div className="mt-4">
             <label className="block p-4 mt-2 text-center border-2 border-indigo-200 border-dashed rounded-md cursor-pointer hover:bg-indigo-50">
               <span className="text-sm font-medium text-indigo-600">Choose Excel File</span>
-              <input 
-                type="file" 
-                accept=".xlsx, .xls" 
+              <input
+                type="file"
+                accept=".xlsx, .xls"
                 onChange={handleFileUpload}
                 disabled={loading}
-                className="hidden" 
+                className="hidden"
               />
             </label>
           </div>
-          
+
           {loading && progress > 0 && (
             <div className="w-full mt-4 bg-gray-200 rounded-full h-2.5">
               <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
@@ -210,7 +216,7 @@ export default function Admin() {
           <p className="mb-4 text-sm text-gray-600">
             Load initial dummy data into the Firestore database for testing purposes.
           </p>
-          
+
           <button
             onClick={handleAddSampleBooks}
             disabled={loading}
@@ -290,31 +296,51 @@ export default function Admin() {
 
       {/* Bulk Manage Catalog */}
       <div className="p-6 mt-8 border border-gray-200 rounded-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+          <div className="flex-1">
             <h2 className="text-xl font-semibold text-gray-800">Library Catalog (Bulk Manage)</h2>
             <p className="text-sm text-gray-600">
               Select multiple books to delete them permanently from the database.
             </p>
           </div>
-          <button
-            onClick={executeBulkDelete}
-            disabled={selectedIds.length === 0 || bulkDeleting}
-            className={`mt-4 sm:mt-0 px-4 py-2 font-bold text-white transition-colors rounded whitespace-nowrap ${
-              selectedIds.length === 0
-                ? 'bg-red-300 cursor-not-allowed'
-                : 'bg-red-600 hover:bg-red-700'
-            }`}
-          >
-            {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center">
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                placeholder="Find book to delete..."
+                value={adminSearchQuery}
+                onChange={(e) => setAdminSearchQuery(e.target.value)}
+                className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              {adminSearchQuery && (
+                <button
+                  onClick={() => setAdminSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <button
+              onClick={executeBulkDelete}
+              disabled={selectedIds.length === 0 || bulkDeleting}
+              className={`px-4 py-2 font-bold text-white transition-colors rounded whitespace-nowrap ${selectedIds.length === 0
+                  ? 'bg-red-300 cursor-not-allowed'
+                  : 'bg-red-600 hover:bg-red-700'
+                }`}
+            >
+              {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}
+            </button>
+          </div>
         </div>
 
         {libraryLoading ? (
           <div className="py-4 text-sm text-gray-500">Loading catalog...</div>
-        ) : libraryBooks.length === 0 ? (
+        ) : filteredLibraryBooks.length === 0 ? (
           <div className="py-8 text-center bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-gray-600">The library is currently empty.</p>
+            <p className="text-gray-600">No books found matching your search.</p>
           </div>
         ) : (
           <div className="overflow-y-auto max-h-[600px] border border-gray-200 rounded-md">
@@ -325,8 +351,14 @@ export default function Admin() {
                     <input
                       type="checkbox"
                       className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
-                      checked={selectedIds.length === libraryBooks.length && libraryBooks.length > 0}
-                      onChange={toggleSelectAll}
+                      checked={selectedIds.length === filteredLibraryBooks.length && filteredLibraryBooks.length > 0}
+                      onChange={() => {
+                        if (selectedIds.length === filteredLibraryBooks.length && filteredLibraryBooks.length > 0) {
+                          setSelectedIds([]);
+                        } else {
+                          setSelectedIds(filteredLibraryBooks.map(b => b.id));
+                        }
+                      }}
                     />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Number</th>
@@ -336,9 +368,9 @@ export default function Admin() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {libraryBooks.map(book => (
-                  <tr 
-                    key={book.id} 
+                {filteredLibraryBooks.map(book => (
+                  <tr
+                    key={book.id}
                     className={`hover:bg-gray-50 ${selectedIds.includes(book.id) ? 'bg-indigo-50' : ''}`}
                     onClick={() => toggleSelection(book.id)}
                   >
@@ -363,7 +395,7 @@ export default function Admin() {
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full 
                         ${book.status === 'available' ? 'bg-green-100 text-green-800' :
                           book.status === 'borrowed' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'}`}>
+                            'bg-red-100 text-red-800'}`}>
                         {book.status?.toUpperCase() || 'UNKNOWN'}
                       </span>
                     </td>

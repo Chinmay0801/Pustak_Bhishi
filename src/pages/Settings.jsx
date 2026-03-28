@@ -152,6 +152,16 @@ export default function Settings() {
     }
   }
 
+  async function handleDeleteMember(uid, email) {
+    if (!window.confirm(`CRITICAL WARNING: Are you absolutely sure you want to permanently delete the profile for ${email}? This action cannot be undone.`)) return;
+    try {
+      await deleteUserDoc(uid);
+      await loadAdminData();
+    } catch (err) {
+      alert("Failed to delete member: " + err.message);
+    }
+  }
+
   async function handleAddInvite(e) {
     e.preventDefault();
     if(!newInviteName.trim() || !newInvitePhone.trim()) return;
@@ -382,12 +392,20 @@ export default function Settings() {
                               Reset Pass
                             </button>
                             {user.uid !== currentUser.uid && (
-                              <button 
-                                onClick={() => handleToggleAdmin(user.uid, user.isAdmin)}
-                                className={`${user.isAdmin ? 'text-orange-600 hover:text-orange-900' : 'text-indigo-600 hover:text-indigo-900'}`}
-                              >
-                                {user.isAdmin ? 'Revoke Admin' : 'Make Admin'}
-                              </button>
+                              <div className="inline-flex space-x-3">
+                                <button 
+                                  onClick={() => handleToggleAdmin(user.uid, user.isAdmin)}
+                                  className={`${user.isAdmin ? 'text-orange-600 hover:text-orange-900' : 'text-indigo-600 hover:text-indigo-900'}`}
+                                >
+                                  {user.isAdmin ? 'Revoke Admin' : 'Make Admin'}
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteMember(user.uid, user.email)}
+                                  className="text-red-600 hover:text-red-900 font-semibold"
+                                >
+                                  Remove Member
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>

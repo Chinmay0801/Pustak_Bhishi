@@ -91,7 +91,7 @@ export default function Login() {
             alt="Google"
             className="w-5 h-5 mr-3"
           />
-          Continue with Google (Best Option)
+          Continue with Google
         </button>
 
         {/* DIVIDER */}

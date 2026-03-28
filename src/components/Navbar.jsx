@@ -1,12 +1,20 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  if (!currentUser) {
-    return null; // hide entirely on login screens
+  if (!currentUser) return null;
+
+  async function handleLogout() {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error("Failed to log out", error);
+    }
   }
 
   // Active state styling helper
@@ -15,7 +23,9 @@ export default function Navbar() {
   const inactiveClass = "text-gray-500 hover:text-gray-300";
 
   return (
-    <nav className="fixed bottom-0 w-full bg-[#1e1e1e] border-t border-[#333] z-50 pb-safe">
+    <>
+      {/* 📱 MOBILE BOTTOM NAV */}
+      <nav className="md:hidden fixed bottom-0 w-full bg-[#1e1e1e] border-t border-[#333] z-50 pb-safe">
       <div className="flex justify-around items-center h-16 max-w-md mx-auto">
         <Link to="/" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/') ? activeClass : inactiveClass}`}>
           <span className="text-xl">🏠</span>
@@ -40,5 +50,49 @@ export default function Navbar() {
         </Link>
       </div>
     </nav>
+
+      {/* 💻 DESKTOP TOP NAV */}
+      <nav className="hidden md:block w-full bg-[#1e1e1e] border-b border-[#333] shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <Link to="/" className="text-xl font-bold text-white shrink-0">
+                Pustak Bhishi
+              </Link>
+              <div className="ml-10 flex items-baseline space-x-4">
+                <Link to="/" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                  Dashboard
+                </Link>
+                <Link to="/books" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/books') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                  Catalog
+                </Link>
+                {userProfile?.isAdmin && (
+                  <Link to="/admin" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/admin') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                    Members List
+                  </Link>
+                )}
+                <Link to="/settings" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/settings') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                  {userProfile?.isAdmin ? 'Global Settings' : 'My Profile'}
+                </Link>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-400">{userProfile?.displayName || currentUser.email}</span>
+              {userProfile?.isAdmin && (
+                <span className="px-2 py-1 text-xs font-bold text-[#1e1e1e] bg-[#4ade80] rounded-full">
+                  Admin
+                </span>
+              )}
+              <button
+                onClick={handleLogout}
+                className="px-3 py-2 text-sm font-medium text-white transition-colors bg-red-600 rounded-md hover:bg-red-700"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </>
   );
 }

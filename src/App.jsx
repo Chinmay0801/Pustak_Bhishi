@@ -33,7 +33,8 @@ function PrivateRoute({ children, requireAdmin }) {
 function App() {
   return (
     <div className="min-h-screen bg-[#121212] flex flex-col items-center">
-      <main className="w-full max-w-md pb-20">
+      <Navbar />
+      <main className="w-full md:max-w-none max-w-md pb-20 md:pb-6">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route 
@@ -86,7 +87,6 @@ function App() {
           />
         </Routes>
       </main>
-      <Navbar />
     </div>
   );
 }

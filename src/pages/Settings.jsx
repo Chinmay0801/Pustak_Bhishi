@@ -7,9 +7,12 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 import * as xlsx from 'xlsx';
 
+import { useNavigate } from 'react-router-dom';
+
 export default function Settings() {
-  const { currentUser, userProfile, refreshProfile } = useAuth();
+  const { currentUser, userProfile, refreshProfile, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const navigate = useNavigate();
 
   // --- Member State ---
   const [displayName, setDisplayName] = useState('');
@@ -216,7 +219,16 @@ export default function Settings() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           {/* Profile Form */}
           <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="mb-4 text-xl font-bold text-gray-800">Personal Information</h2>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Personal Information</h2>
+              <button
+                onClick={async () => { await logout(); navigate('/login'); }}
+                className="md:hidden px-3 py-1.5 text-xs font-bold text-red-600 border border-red-600 rounded bg-red-50 hover:bg-red-100 transition-colors"
+                title="Log Out (Mobile)"
+              >
+                Log Out
+              </button>
+            </div>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Display Name</label>

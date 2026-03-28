@@ -8,7 +8,7 @@ import { auth } from '../firebase';
 import * as xlsx from 'xlsx';
 
 export default function Settings() {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
 
   // --- Member State ---
@@ -57,6 +57,7 @@ export default function Settings() {
     setSavingProfile(true);
     try {
       await updateUserProfile(currentUser.uid, { displayName, phoneNumber, language });
+      await refreshProfile();
       alert("Profile updated successfully!");
     } catch (err) {
       alert("Failed to update profile: " + err.message);

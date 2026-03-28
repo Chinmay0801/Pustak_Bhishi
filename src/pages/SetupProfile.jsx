@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { updateUserProfile } from '../services/userService';
 
 export default function SetupProfile() {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState('');
@@ -38,7 +38,9 @@ export default function SetupProfile() {
         phoneNumber: phoneNumber.trim(),
         language: 'english' // default language for new signups
       });
-      // Context will auto-update userProfile, which will trigger the useEffect redirect above
+      // Force local sync so App.jsx router unlocks
+      await refreshProfile();
+      navigate('/');
     } catch (err) {
       setError('Failed to save profile: ' + err.message);
     } finally {
@@ -48,7 +50,7 @@ export default function SetupProfile() {
 
   // Prevent UI flashing if the redirect hooks are computing
   if (!currentUser || (userProfile?.displayName && userProfile?.phoneNumber)) {
-    return null; 
+    return null;
   }
 
   return (
@@ -60,7 +62,7 @@ export default function SetupProfile() {
             Let's finish setting up your profile before we let you browse the library.
           </p>
         </div>
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleCompleteSetup}>
           {error && (
             <div className="p-3 text-sm text-red-600 bg-red-100 rounded border border-red-200">
@@ -84,7 +86,7 @@ export default function SetupProfile() {
                 onChange={(e) => setDisplayName(e.target.value)}
               />
             </div>
-            
+
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
                 WhatsApp / Phone Number (Required)

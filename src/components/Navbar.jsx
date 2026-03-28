@@ -1,78 +1,43 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
-  const { currentUser, userProfile, logout } = useAuth();
-  const navigate = useNavigate();
+  const { currentUser, userProfile } = useAuth();
+  const location = useLocation();
 
-  async function handleLogout() {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error("Failed to log out", error);
-    }
+  if (!currentUser) {
+    return null; // hide entirely on login screens
   }
 
+  // Active state styling helper
+  const isActive = (path) => location.pathname === path;
+  const activeClass = "text-[#4ade80]"; // Green active
+  const inactiveClass = "text-gray-500 hover:text-gray-300";
+
   return (
-    <nav className="bg-indigo-600 shadow-md">
-      <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/" className="text-xl font-bold text-white shrink-0">
-              Pustak Bhishi
-            </Link>
-            <div className="block ml-10">
-              <div className="flex items-baseline space-x-4">
-                <Link to="/" className="px-3 py-2 text-sm font-medium text-white rounded-md hover:bg-indigo-500">
-                  Home
-                </Link>
-                {currentUser && (
-                  <Link to="/my-books" className="px-3 py-2 text-sm font-medium text-white rounded-md hover:bg-indigo-500">
-                    My Books
-                  </Link>
-                )}
-                {userProfile?.isAdmin && (
-                  <Link to="/admin" className="px-3 py-2 text-sm font-medium text-white rounded-md hover:bg-indigo-500">
-                    Admin
-                  </Link>
-                )}
-                {currentUser && (
-                  <Link to="/settings" className="px-3 py-2 text-sm font-medium text-white rounded-md hover:bg-indigo-500">
-                    ⚙️ Settings
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="block">
-            <div className="flex items-center ml-4 md:ml-6">
-              {currentUser ? (
-                <div className="flex items-center space-x-4 text-white">
-                  <span className="text-sm">{currentUser.email}</span>
-                  {userProfile?.isAdmin && (
-                    <span className="px-2 py-1 text-xs font-bold text-indigo-800 bg-yellow-400 rounded-full">
-                      Admin
-                    </span>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="px-3 py-2 text-sm font-medium text-white bg-indigo-700 rounded-md hover:bg-indigo-800"
-                  >
-                    Logout
-                  </button>
-                </div>
-              ) : (
-                <Link
-                  to="/login"
-                  className="px-3 py-2 text-sm font-medium text-indigo-600 bg-white rounded-md hover:bg-gray-100"
-                >
-                  Login
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
+    <nav className="fixed bottom-0 w-full bg-[#1e1e1e] border-t border-[#333] z-50 pb-safe">
+      <div className="flex justify-around items-center h-16 max-w-md mx-auto">
+        <Link to="/" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/') ? activeClass : inactiveClass}`}>
+          <span className="text-xl">🏠</span>
+          <span className="text-[10px] font-medium">Home</span>
+        </Link>
+        
+        <Link to="/books" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/books') ? activeClass : inactiveClass}`}>
+          <span className="text-xl">📚</span>
+          <span className="text-[10px] font-medium">Books</span>
+        </Link>
+
+        {userProfile?.isAdmin && (
+          <Link to="/admin" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/admin') ? activeClass : inactiveClass}`}>
+            <span className="text-xl">👥</span>
+            <span className="text-[10px] font-medium">Members</span>
+          </Link>
+        )}
+
+        <Link to="/settings" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/settings') ? activeClass : inactiveClass}`}>
+          <span className="text-xl">{userProfile?.isAdmin ? '⚙️' : '👤'}</span>
+          <span className="text-[10px] font-medium">{userProfile?.isAdmin ? 'Settings' : 'Profile'}</span>
+        </Link>
       </div>
     </nav>
   );

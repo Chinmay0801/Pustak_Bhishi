@@ -49,8 +49,8 @@ export default function Home() {
   }
 
   return (
-    <div className="max-w-7xl p-6 mx-auto">
-      <h1 className="mb-8 text-3xl font-bold text-gray-800">Library Catalog</h1>
+    <div className="max-w-7xl p-6 mx-auto pb-24">
+      <h1 className="mb-8 text-3xl font-bold text-white">Library Catalog</h1>
       
       {loading && books.length === 0 ? (
         <div className="flex justify-center p-12">

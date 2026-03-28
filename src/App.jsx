@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
-import Home from './pages/Home';
+import Dashboard from './pages/Dashboard';
+import Catalog from './pages/Catalog';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 import MyBooks from './pages/MyBooks';
@@ -31,16 +32,23 @@ function PrivateRoute({ children, requireAdmin }) {
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
-      <main>
+    <div className="min-h-screen bg-[#121212] flex flex-col items-center">
+      <main className="w-full max-w-md pb-20">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route 
             path="/" 
             element={
               <PrivateRoute>
-                <Home />
+                <Dashboard />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/books" 
+            element={
+              <PrivateRoute>
+                <Catalog />
               </PrivateRoute>
             } 
           />
@@ -78,6 +86,7 @@ function App() {
           />
         </Routes>
       </main>
+      <Navbar />
     </div>
   );
 }

@@ -16,6 +16,23 @@ import { db } from "../firebase";
 const BOOKS_COLLECTION = "books";
 const TRANSACTIONS_COLLECTION = "transactions";
 
+// Helper for dynamic read-time fine calculation
+function attachFineCalculations(data) {
+  if (!data.borrowedAt || data.isReturned || data.finePaid) {
+    return { ...data, daysBorrowed: 0, isOverdue: false, fineDue: 0 };
+  }
+  
+  const borrowedDate = data.borrowedAt.toDate ? data.borrowedAt.toDate() : new Date(data.borrowedAt);
+  const diffTime = new Date() - borrowedDate;
+  const daysBorrowed = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+  
+  // Flat ₹20 fine if crossed 90 days.
+  const isOverdue = daysBorrowed > 90;
+  const fineDue = isOverdue ? 20 : 0;
+  
+  return { ...data, daysBorrowed, isOverdue, fineDue };
+}
+
 // Add a new book
 export async function addBook(bookData) {
   return addDoc(collection(db, BOOKS_COLLECTION), {
@@ -83,7 +100,7 @@ export async function borrowBook(bookId, bookTitle, userId, userName) {
   });
 }
 
-// Return a book
+// Return a book AND automatically clear fine if one existed
 export async function returnBook(bookId, transactionId) {
   // 1. Update book status back to available
   await updateBook(bookId, {
@@ -93,10 +110,11 @@ export async function returnBook(bookId, transactionId) {
     borrowedAt: null,
   });
 
-  // 2. Mark transaction as returned
+  // 2. Mark transaction as returned and perfectly settled
   const transactionRef = doc(db, TRANSACTIONS_COLLECTION, transactionId);
   return updateDoc(transactionRef, {
     isReturned: true,
+    finePaid: true, // Clears the record so it doesn't surface as a pending debt
     returnedAt: serverTimestamp(),
   });
 }
@@ -121,7 +139,7 @@ export async function getActiveTransactions(userId = null) {
   }
   
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  return snapshot.docs.map((doc) => attachFineCalculations({ id: doc.id, ...doc.data() }));
 }
 
 // Get historic past transactions for a specific user
@@ -145,5 +163,5 @@ export async function getAllTransactions() {
   );
   
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  return snapshot.docs.map((doc) => attachFineCalculations({ id: doc.id, ...doc.data() }));
 }

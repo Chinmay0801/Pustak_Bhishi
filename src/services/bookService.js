@@ -79,13 +79,17 @@ export async function bulkDeleteBooks(bookIds) {
 }
 
 // Borrow a book
-export async function borrowBook(bookId, bookTitle, userId, userName) {
+export async function borrowBook(bookId, bookTitle, userId, userName, borrowDate = null) {
+  const bDate = borrowDate ? new Date(borrowDate) : new Date();
+  const dueDate = new Date(bDate.getTime() + 90 * 24 * 60 * 60 * 1000);
+
   // 1. Update book status
   await updateBook(bookId, {
     status: "borrowed",
     borrowedBy: userId,
     borrowedByName: userName,
-    borrowedAt: serverTimestamp(),
+    borrowedAt: borrowDate ? bDate : serverTimestamp(),
+    dueDate,
   });
 
   // 2. Create transaction record
@@ -94,7 +98,8 @@ export async function borrowBook(bookId, bookTitle, userId, userName) {
     bookTitle,
     userId,
     userName,
-    borrowedAt: serverTimestamp(),
+    borrowedAt: borrowDate ? bDate : serverTimestamp(),
+    dueDate,
     returnedAt: null,
     isReturned: false,
   });
@@ -108,6 +113,7 @@ export async function returnBook(bookId, transactionId) {
     borrowedBy: null,
     borrowedByName: null,
     borrowedAt: null,
+    dueDate: null,
   });
 
   // 2. Mark transaction as returned and perfectly settled

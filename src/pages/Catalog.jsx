@@ -1,9 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getBooks, deleteBook, borrowBook } from '../services/bookService';
 import { useAuth } from '../context/AuthContext';
 
 export default function Home() {
   const [books, setBooks] = useState([]);
+  const [filteredBooks, setFilteredBooks] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [donorFilter, setDonorFilter] = useState('all');
+  const [borrowDate, setBorrowDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const { currentUser, userProfile } = useAuth();
   
@@ -12,6 +17,7 @@ export default function Home() {
       setLoading(true);
       const booksList = await getBooks();
       setBooks(booksList);
+      setFilteredBooks(booksList);
     } catch (err) {
       console.error("Failed to load books:", err);
     } finally {
@@ -22,6 +28,42 @@ export default function Home() {
   useEffect(() => {
     fetchBooks();
   }, []);
+
+  useEffect(() => {
+    setFilteredBooks(books);
+  }, [books]);
+
+  function formatDate(value) {
+    if (!value) return 'N/A';
+    const date = value.toDate ? value.toDate() : new Date(value);
+    return date.toLocaleDateString();
+  }
+
+  const donors = useMemo(() => {
+    const names = books.map((book) => book.contributor).filter(Boolean);
+    return ["all", ...Array.from(new Set(names))];
+  }, [books]);
+
+  function applyFilters() {
+    const query = searchQuery.trim().toLowerCase();
+    const result = books.filter((book) => {
+      const matchesSearch = query === '' || [book.title, book.author, book.contributor, book.bookNumber]
+        .filter(Boolean)
+        .some((field) => field.toLowerCase().includes(query));
+
+      const matchesStatus = statusFilter === 'all' || book.status === statusFilter;
+      const matchesDonor = donorFilter === 'all' || book.contributor === donorFilter;
+      return matchesSearch && matchesStatus && matchesDonor;
+    });
+    setFilteredBooks(result);
+  }
+
+  function handleResetFilters() {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setDonorFilter('all');
+    setFilteredBooks(books);
+  }
 
   async function handleDelete(bookId) {
     if (window.confirm("Are you sure you want to delete this book?")) {
@@ -39,7 +81,8 @@ export default function Home() {
     if (!window.confirm(`Do you want to borrow "${book.title}"?`)) return;
     
     try {
-      await borrowBook(book.id, book.title, currentUser.uid, currentUser.email);
+      const borrowerName = userProfile?.displayName || currentUser.email;
+      await borrowBook(book.id, book.title, currentUser.uid, borrowerName, borrowDate);
       alert("Book borrowed successfully!");
       fetchBooks(); // refresh UI
     } catch (err) {
@@ -51,19 +94,95 @@ export default function Home() {
   return (
     <div className="max-w-7xl p-6 mx-auto pb-24">
       <h1 className="mb-8 text-3xl font-bold text-white">Library Catalog</h1>
-      
-      {loading && books.length === 0 ? (
+
+      <div className="grid gap-6 p-6 mb-8 bg-gray-900 border border-gray-800 rounded-2xl shadow-xl md:grid-cols-4">
+        <div className="md:col-span-1">
+          <label className="block text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Search Catalog</label>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              type="text"
+              placeholder="Title, author, or #..."
+              className="w-full pl-10 pr-4 py-3 bg-[#1e1e1e] border-0 rounded-xl text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 transition-all"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Status</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-4 py-3 bg-[#1e1e1e] border-0 rounded-xl text-sm text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+          >
+            <option value="all">All Statuses</option>
+            <option value="available">Available Only</option>
+            <option value="borrowed">Borrowed Only</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Donated By</label>
+          <select
+            value={donorFilter}
+            onChange={(e) => setDonorFilter(e.target.value)}
+            className="w-full px-4 py-3 bg-[#1e1e1e] border-0 rounded-xl text-sm text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+          >
+            {donors.map((name) => (
+              <option key={name} value={name}>{name === 'all' ? 'All Contributors' : name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Borrow Date</label>
+          <input
+            type="date"
+            value={borrowDate}
+            onChange={(e) => setBorrowDate(e.target.value)}
+            className="w-full px-4 py-3 bg-[#1e1e1e] border-0 rounded-xl text-sm text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+          />
+        </div>
+
+        <div className="md:col-span-4 flex justify-between items-center pt-2">
+          <div className="text-gray-500 text-xs font-medium">
+            Showing {filteredBooks.length} of {books.length} books
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleResetFilters}
+              className="px-6 py-2.5 text-sm font-bold text-gray-400 hover:text-white transition-colors"
+            >
+              Reset All
+            </button>
+            <button
+              onClick={applyFilters}
+              className="px-8 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transform hover:-translate-y-0.5 transition-all active:translate-y-0"
+            >
+              Apply Filter
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {loading && filteredBooks.length === 0 ? (
         <div className="flex justify-center p-12">
           <div className="w-8 h-8 rounded-full animate-spin border-b-2 border-indigo-600"></div>
         </div>
-      ) : books.length === 0 ? (
+      ) : filteredBooks.length === 0 ? (
         <div className="p-8 text-center bg-white rounded-lg shadow">
-          <p className="text-gray-500">No books found in the library.</p>
-          <p className="mt-2 text-sm text-gray-400">If you are an admin, go to the Admin tab to upload the Excel file.</p>
+          <p className="text-gray-500">No matching books found.</p>
+          <p className="mt-2 text-sm text-gray-400">Try a different query or reset the filters.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {books.map(book => (
+          {filteredBooks.map(book => (
             <div key={book.id} className="relative flex flex-col p-5 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
               
               {userProfile?.isAdmin && (
@@ -102,6 +221,12 @@ export default function Home() {
                 )}
                 {book.dateReceived && (
                   <p><span className="font-semibold text-gray-700">कधी (Date):</span> {book.dateReceived}</p>
+                )}
+                {book.status === 'borrowed' && book.borrowedAt && (
+                  <p><span className="font-semibold text-gray-700">Borrowed on:</span> {formatDate(book.borrowedAt)}</p>
+                )}
+                {book.status === 'borrowed' && book.dueDate && (
+                  <p><span className="font-semibold text-gray-700">Due by:</span> {formatDate(book.dueDate)}</p>
                 )}
               </div>
 

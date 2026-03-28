@@ -26,6 +26,12 @@ export default function MyBooks() {
     fetchMyBooks();
   }, [currentUser]);
 
+  function formatDate(value) {
+    if (!value) return 'N/A';
+    const date = value.toDate ? value.toDate() : new Date(value);
+    return date.toLocaleDateString();
+  }
+
   async function handleReturn(transaction) {
     if (!window.confirm(`Are you sure you want to return "${transaction.bookTitle}"?`)) return;
     
@@ -64,9 +70,21 @@ export default function MyBooks() {
             <div key={txn.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-4 sm:mb-0">
                 <h3 className="text-xl font-semibold text-gray-800">{txn.bookTitle}</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Borrowed on: {txn.borrowedAt ? new Date(txn.borrowedAt.toDate()).toLocaleDateString() : 'Unknown'}
-                </p>
+                <div className="flex flex-col mt-1 space-y-1">
+                  <p className="text-sm text-gray-500">
+                    Borrowed on: {txn.borrowedAt ? new Date(txn.borrowedAt.toDate()).toLocaleDateString() : 'Unknown'}
+                  </p>
+                  {txn.dueDate && (
+                    <p className="text-sm text-gray-500">
+                      Due by: {new Date(txn.dueDate.toDate()).toLocaleDateString()}
+                    </p>
+                  )}
+                  {txn.fineDue > 0 && (
+                    <p className="text-sm font-bold text-red-600">
+                      Fine: ₹{txn.fineDue} (Overdue)
+                    </p>
+                  )}
+                </div>
               </div>
               
               <button

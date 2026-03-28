@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { updateUserProfile, getAllUsers, updateUserRole, deleteUserDoc } from '../services/userService';
+import { updateUserProfile, getAllUsers, updateUserRole, deleteUserDoc, addPendingInvite, getPendingInvites, deletePendingInvite } from '../services/userService';
 import { getPastTransactions, getAllTransactions, getBooks } from '../services/bookService';
 import { getGlobalSettings, updateGlobalSettings, initializeGlobalSettings } from '../services/settingsService';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -21,6 +21,9 @@ export default function Settings() {
 
   // --- Admin State ---
   const [allUsers, setAllUsers] = useState([]);
+  const [pendingInvites, setPendingInvites] = useState([]);
+  const [newInviteName, setNewInviteName] = useState('');
+  const [newInvitePhone, setNewInvitePhone] = useState('');
   const [globalSettings, setGlobalSettings] = useState({ libraryName: '', maxBorrowDays: 30, contactNumber: '' });
   const [stats, setStats] = useState({ totalBooks: 0, totalBorrows: 0 });
   const [adminLoading, setAdminLoading] = useState(false);
@@ -77,14 +80,16 @@ export default function Settings() {
     try {
       await initializeGlobalSettings();
       
-      const [users, settings, books, allTxns] = await Promise.all([
+      const [users, settings, books, allTxns, invites] = await Promise.all([
         getAllUsers(),
         getGlobalSettings(),
         getBooks(),
-        getAllTransactions()
+        getAllTransactions(),
+        getPendingInvites()
       ]);
       
       setAllUsers(users);
+      setPendingInvites(invites || []);
       if (settings) setGlobalSettings(settings);
       setStats({
         totalBooks: books.length,
@@ -144,6 +149,33 @@ export default function Settings() {
       loadAdminData();
     } catch (err) {
       alert("Failed to update role: " + err.message);
+    }
+  }
+
+  async function handleAddInvite(e) {
+    e.preventDefault();
+    if(!newInviteName.trim() || !newInvitePhone.trim()) return;
+    setAdminLoading(true);
+    try {
+      await addPendingInvite(newInviteName.trim(), newInvitePhone.trim());
+      setNewInviteName('');
+      setNewInvitePhone('');
+      await loadAdminData();
+    } catch(err) {
+      alert("Error adding invite: " + err.message);
+      setAdminLoading(false);
+    }
+  }
+
+  async function handleDeleteInvite(id) {
+    if(!window.confirm("Delete this pending invite?")) return;
+    setAdminLoading(true);
+    try {
+      await deletePendingInvite(id);
+      await loadAdminData();
+    } catch(err) {
+      alert("Error deleting invite: " + err.message);
+      setAdminLoading(false);
     }
   }
 
@@ -362,6 +394,60 @@ export default function Settings() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </div>
+
+            {/* Pre-Registered Invites */}
+            <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm lg:col-span-3">
+              <h2 className="mb-4 text-xl font-bold text-gray-800">Pre-Registered Members (Pending Google Sign-Ins)</h2>
+              <p className="text-sm text-gray-500 mb-6">Create profiles for members here. First-time users will see these names when they log in with Google and can select their profile to permanently link it.</p>
+              
+              <form onSubmit={handleAddInvite} className="flex flex-col md:flex-row gap-4 mb-8">
+                <input
+                  type="text"
+                  placeholder="Full Name (e.g. Sunita Tai)"
+                  value={newInviteName}
+                  onChange={(e) => setNewInviteName(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone Number (e.g. 9822...)"
+                  value={newInvitePhone}
+                  onChange={(e) => setNewInvitePhone(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
+                <button type="submit" disabled={adminLoading} className="px-6 py-2 font-bold text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50">
+                  Create Invite
+                </button>
+              </form>
+
+              {adminLoading ? (
+                <p className="text-gray-500">Loading invites...</p>
+              ) : pendingInvites.length === 0 ? (
+                <p className="p-4 text-center text-gray-500 bg-gray-50 rounded border border-dashed border-gray-300">
+                  No pending invites found. Add one above!
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {pendingInvites.map(invite => (
+                    <div key={invite.id} className="p-4 border border-indigo-100 bg-indigo-50 rounded-lg shadow-sm relative pr-12 group">
+                      <p className="font-bold text-indigo-900">{invite.name}</p>
+                      <p className="text-sm text-indigo-700">{invite.phone}</p>
+                      <button
+                        onClick={() => handleDeleteInvite(invite.id)}
+                        className="absolute right-3 top-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete Invite"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

@@ -1,4 +1,4 @@
-import { collection, doc, updateDoc, getDocs, getDoc, deleteDoc, query } from "firebase/firestore";
+import { collection, doc, updateDoc, getDocs, getDoc, deleteDoc, query, addDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { db, auth } from "../firebase";
 
@@ -35,4 +35,24 @@ export async function updateUserRole(uid, isAdmin) {
 export async function deleteUserDoc(uid) {
   const userRef = doc(db, USERS_COLLECTION, uid);
   return deleteDoc(userRef);
+}
+
+// --- PENDING INVITES (Pre-registered Members) ---
+const INVITES_COLLECTION = "pendingInvites";
+
+export async function addPendingInvite(name, phone) {
+  return addDoc(collection(db, INVITES_COLLECTION), {
+    name: name,
+    phone: phone,
+    createdAt: new Date(),
+  });
+}
+
+export async function getPendingInvites() {
+  const snapshot = await getDocs(collection(db, INVITES_COLLECTION));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export async function deletePendingInvite(inviteId) {
+  return deleteDoc(doc(db, INVITES_COLLECTION, inviteId));
 }

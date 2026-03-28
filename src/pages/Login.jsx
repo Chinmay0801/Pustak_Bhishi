@@ -9,8 +9,20 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login, signup } = useAuth();
+  const { login, signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  async function handleGoogleLogin() {
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+      navigate('/');
+    } catch (err) {
+      setError(err.message || 'Google Auth Failed');
+    }
+    setLoading(false);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -38,6 +50,22 @@ export default function Login() {
           {isLogin ? 'Sign In' : 'Register'}
         </h2>
         {error && <div className="p-3 text-red-700 bg-red-100 rounded">{error}</div>}
+        
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full flex items-center justify-center px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm font-semibold"
+        >
+          <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5 mr-3" />
+          Continue with Google (Recommended)
+        </button>
+
+        <div className="relative flex items-center py-5">
+          <div className="flex-grow border-t border-gray-300"></div>
+          <span className="flex-shrink-0 px-4 text-sm text-gray-400">or use email</span>
+          <div className="flex-grow border-t border-gray-300"></div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700">Email</label>

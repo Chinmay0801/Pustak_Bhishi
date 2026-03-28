@@ -4,6 +4,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  GoogleAuthProvider,
+  signInWithPopup
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -21,7 +23,6 @@ export function AuthProvider({ children }) {
 
   async function signup(email, password) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    // Create a user document in Firestore so we can set isAdmin manually
     await setDoc(doc(db, "users", userCredential.user.uid), {
       email: userCredential.user.email,
       isAdmin: false,
@@ -31,6 +32,14 @@ export function AuthProvider({ children }) {
 
   function login(email, password) {
     return signInWithEmailAndPassword(auth, email, password);
+  }
+
+  async function loginWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    // Note: We don't automatically create a full users doc here if they are new, 
+    // because SetupProfile.jsx handles the linking to pending invites.
+    return result;
   }
 
   function logout() {
@@ -74,6 +83,7 @@ export function AuthProvider({ children }) {
     userProfile,
     login,
     signup,
+    loginWithGoogle,
     logout,
     refreshProfile,
   };

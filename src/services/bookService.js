@@ -123,3 +123,27 @@ export async function getActiveTransactions(userId = null) {
   const snapshot = await getDocs(q);
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 }
+
+// Get historic past transactions for a specific user
+export async function getPastTransactions(userId) {
+  const q = query(
+    collection(db, TRANSACTIONS_COLLECTION),
+    where("userId", "==", userId),
+    where("isReturned", "==", true),
+    orderBy("returnedAt", "desc")
+  );
+  
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+}
+
+// Get ALL transactions (returned and active) for Admin Export
+export async function getAllTransactions() {
+  const q = query(
+    collection(db, TRANSACTIONS_COLLECTION),
+    orderBy("borrowedAt", "desc")
+  );
+  
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+}

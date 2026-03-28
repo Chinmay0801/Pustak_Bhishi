@@ -37,6 +37,11 @@ export default function Navbar() {
                     Admin
                   </Link>
                 )}
+                {currentUser && (
+                  <Link to="/settings" className="px-3 py-2 text-sm font-medium text-white rounded-md hover:bg-indigo-500">
+                    ⚙️ Settings
+                  </Link>
+                )}
               </div>
             </div>
           </div>

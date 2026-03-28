@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 import MyBooks from './pages/MyBooks';
+import Settings from './pages/Settings';
 
 // Protected Route Component
 function PrivateRoute({ children, requireAdmin }) {
@@ -49,6 +50,14 @@ function App() {
             element={
               <PrivateRoute requireAdmin={true}>
                 <Admin />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <PrivateRoute>
+                <Settings />
               </PrivateRoute>
             } 
           />

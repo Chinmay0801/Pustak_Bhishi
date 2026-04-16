@@ -124,10 +124,17 @@ export default function Settings() {
       alert("Password updated successfully!");
       setNewPassword('');
     } catch (err) {
-      alert("Failed to update password. You may need to log out and log back in first. Error: " + err.message);
+      if (err.code === 'auth/requires-recent-login') {
+        alert("For security reasons, your login session must be fresh before changing your password. Please log out and back in, then try again.");
+      } else {
+        alert("Failed to update password. Error: " + err.message);
+      }
     }
     setChangingPass(false);
   }
+
+  // Check if they are a Google Sign In user
+  const isGoogleUser = currentUser?.providerData?.some(p => p.providerId === 'google.com');
 
   // ===================== ADMIN FUNCTIONS =====================
   async function loadAdminData() {
@@ -193,6 +200,16 @@ export default function Settings() {
       alert("Book Title is required.");
       return;
     }
+    
+    // Unique Book Number Check
+    if (singleBook.bookNumber && singleBook.bookNumber.trim() !== '') {
+      const exists = adminBooks.some(b => b.bookNumber === singleBook.bookNumber.trim());
+      if (exists) {
+        alert(`Error: Serial Number "${singleBook.bookNumber}" is already assigned to a book! Please use a unique number.`);
+        return;
+      }
+    }
+
     setAddingSingleBook(true);
     try {
       await addBook({
@@ -240,13 +257,28 @@ export default function Settings() {
         const dataRows = rawData.slice(headerIndex + 1);
         setImportMessage(`Uploading ${dataRows.length} books...`);
         let importedCount = 0;
+        let skippedCount = 0;
         const uniqueContributors = new Set();
+        
+        // Track existing book numbers for validation (skip duplicates)
+        const existingBookNumbers = new Set(adminBooks.map(b => b.bookNumber).filter(Boolean));
 
         for (const row of dataRows) {
           if (!row || row.length === 0 || !row[titleIdx]) continue; // Skip totally empty rows
 
+          const parsedNum = numIdx !== -1 && row[numIdx] ? row[numIdx].toString().trim() : '';
+
+          // Duplicate Serial Number constraint
+          if (parsedNum && existingBookNumbers.has(parsedNum)) {
+             skippedCount++;
+             continue; // Skip this duplicate
+          }
+          if (parsedNum) {
+             existingBookNumbers.add(parsedNum); // prevent duplicates within the same sheet
+          }
+
           const bookData = {
-            bookNumber: numIdx !== -1 && row[numIdx] ? row[numIdx].toString() : '',
+            bookNumber: parsedNum,
             title: titleIdx !== -1 && row[titleIdx] ? row[titleIdx].toString() : 'Unknown Title',
             author: authorIdx !== -1 && row[authorIdx] ? row[authorIdx].toString() : 'Unknown Author',
             price: priceIdx !== -1 && row[priceIdx] ? row[priceIdx].toString() : '',
@@ -280,7 +312,7 @@ export default function Settings() {
           }
         }
 
-        setImportMessage(`Successfully imported ${importedCount} books & generated ${newInvitesCount} pre-registered accounts!`);
+        setImportMessage(`Successfully imported ${importedCount} books & generated ${newInvitesCount} pre-registered accounts! ${skippedCount > 0 ? `(Skipped ${skippedCount} items due to duplicate serial numbers)` : ''}`);
         await loadAdminData();
       } catch (err) {
         setImportMessage('Error parsing or uploading file: ' + err.message);
@@ -387,9 +419,11 @@ export default function Settings() {
       .some(field => field.toLowerCase().includes(query));
   });
 
+  const isMarathi = userProfile?.language === 'marathi';
+
   return (
     <div className={`max-w-6xl p-6 mx-auto mt-8 rounded-lg shadow-md ${isDarkMode ? 'bg-[#1e1e1e] text-gray-200' : 'bg-white text-gray-900'}`}>
-      <h1 className="mb-6 text-3xl font-bold">Settings Hub</h1>
+      <h1 className="mb-6 text-3xl font-bold">{isMarathi ? 'सेटिंग्ज हब' : 'Settings Hub'}</h1>
 
       {/* TABS */}
       <div className="flex px-2 mb-6 space-x-4 border-b border-gray-700 overflow-x-auto pb-1">
@@ -397,7 +431,7 @@ export default function Settings() {
           onClick={() => setActiveTab('profile')}
           className={`py-2 px-4 whitespace-nowrap font-semibold text-sm transition-colors border-b-2 ${activeTab === 'profile' ? 'border-[#4ade80] text-[#4ade80]' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
         >
-          👤 Profile & Preferences
+          👤 {isMarathi ? 'प्रोफाइल' : 'Profile & Preferences'}
         </button>
         {userProfile?.isAdmin && (
           <>
@@ -405,19 +439,19 @@ export default function Settings() {
               onClick={() => setActiveTab('books')}
               className={`py-2 px-4 whitespace-nowrap font-semibold text-sm transition-colors border-b-2 ${activeTab === 'books' ? 'border-[#4ade80] text-[#4ade80]' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
             >
-              📚 Manage Books
+              📚 {isMarathi ? 'पुस्तके व्यवस्थापित करा' : 'Manage Books'}
             </button>
             <button
               onClick={() => setActiveTab('members')}
               className={`py-2 px-4 whitespace-nowrap font-semibold text-sm transition-colors border-b-2 ${activeTab === 'members' ? 'border-[#4ade80] text-[#4ade80]' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
             >
-              👥 Member List
+              👥 {isMarathi ? 'सभासद यादी' : 'Member List'}
             </button>
             <button
               onClick={() => setActiveTab('config')}
               className={`py-2 px-4 whitespace-nowrap font-semibold text-sm transition-colors border-b-2 ${activeTab === 'config' ? 'border-[#4ade80] text-[#4ade80]' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
             >
-              ⚙️ Global Config
+              ⚙️ {isMarathi ? 'सेटिंग्ज' : 'Global Config'}
             </button>
           </>
         )}
@@ -431,9 +465,20 @@ export default function Settings() {
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-bold">Personal Information</h2>
               </div>
+              const t = {
+                personalInfo: isMarathi ? 'वैयक्तिक माहिती' : 'Personal Information',
+                displayName: isMarathi ? 'तुमचे नाव' : 'Display Name',
+                phone: isMarathi ? 'फोन नंबर' : 'Phone Number',
+                language: isMarathi ? 'भाषा' : 'Display Language',
+                email: isMarathi ? 'ईमेल' : 'Email Address (Read-only)',
+                save: isMarathi ? 'सेव्ह करा' : 'Save Profile',
+                saving: isMarathi ? 'सेव्ह करत आहे...' : 'Saving...'
+              };
+              
+              return (
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold">Display Name</label>
+                  <label className="block text-sm font-bold">{t.displayName}</label>
                   <input
                     type="text"
                     value={displayName}
@@ -443,7 +488,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold">Phone Number</label>
+                  <label className="block text-sm font-bold">{t.phone}</label>
                   <input
                     type="tel"
                     value={phoneNumber}
@@ -453,7 +498,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold">Display Language</label>
+                  <label className="block text-sm font-bold">{t.language}</label>
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
@@ -465,7 +510,7 @@ export default function Settings() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium opacity-70">Email Address (Read-only)</label>
+                  <label className="block text-sm font-medium opacity-70">{t.email}</label>
                   <input
                     type="email"
                     disabled
@@ -479,9 +524,11 @@ export default function Settings() {
                   disabled={savingProfile}
                   className="w-full px-4 py-2 font-bold text-[#1e1e1e] transition-colors bg-[#4ade80] rounded-md hover:bg-[#3bca6b] disabled:opacity-50"
                 >
-                  {savingProfile ? 'Saving...' : 'Save Profile'}
+                  {savingProfile ? t.saving : t.save}
                 </button>
               </form>
+              );
+            })()}
             </div>
 
             <div className={`p-6 border rounded-lg shadow-sm ${isDarkMode ? 'bg-[#252525] border-[#333]' : 'bg-white border-gray-200'}`}>
@@ -500,27 +547,36 @@ export default function Settings() {
                 </button>
               </div>
 
-              <form onSubmit={handleChangePassword} className="space-y-4 pt-4 border-t" style={{ borderColor: isDarkMode ? '#444' : '#eee' }}>
-                <div>
+              {isGoogleUser ? (
+                <div className="pt-4 border-t" style={{ borderColor: isDarkMode ? '#444' : '#eee' }}>
                   <h3 className="font-bold mb-2">Change Password</h3>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    minLength={6}
-                    className="block w-full px-3 py-2 mt-1 border rounded-md"
-                    style={{ background: isDarkMode ? '#1e1e1e' : '#fff', borderColor: isDarkMode ? '#444' : '#ccc' }}
-                  />
+                  <p className="text-sm opacity-80 border p-3 rounded" style={{ background: isDarkMode ? '#1e1e1e' : '#f9f9f9', borderColor: isDarkMode ? '#444' : '#ddd' }}>
+                    🟢 You are signed in via Google. Your password is securely managed by Google.
+                  </p>
                 </div>
-                <button
-                  type="submit"
-                  disabled={changingPass || !newPassword}
-                  className="px-4 py-2 font-bold text-white transition-colors bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
-                >
-                  {changingPass ? 'Updating...' : 'Update Password'}
-                </button>
-              </form>
+              ) : (
+                <form onSubmit={handleChangePassword} className="space-y-4 pt-4 border-t" style={{ borderColor: isDarkMode ? '#444' : '#eee' }}>
+                  <div>
+                    <h3 className="font-bold mb-2">Change Password</h3>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      minLength={6}
+                      className="block w-full px-3 py-2 mt-1 border rounded-md"
+                      style={{ background: isDarkMode ? '#1e1e1e' : '#fff', borderColor: isDarkMode ? '#444' : '#ccc' }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={changingPass || !newPassword}
+                    className="px-4 py-2 font-bold text-white transition-colors bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {changingPass ? 'Updating...' : 'Update Password'}
+                  </button>
+                </form>
+              )}
             </div>
           </div>
 

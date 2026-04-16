@@ -22,6 +22,18 @@ export default function Navbar() {
   const activeClass = "text-[#4ade80]"; // Green active
   const inactiveClass = "text-gray-500 hover:text-gray-300";
 
+  const isMarathi = userProfile?.language === 'marathi';
+  const t = {
+    home: isMarathi ? 'मुख्य पृष्ठ' : 'Home',
+    dashboard: isMarathi ? 'डॅशबोर्ड' : 'Dashboard',
+    books: isMarathi ? 'पुस्तके' : 'Catalog',
+    mobileBooks: isMarathi ? 'पुस्तके' : 'Books',
+    settings: isMarathi ? 'सेटिंग्ज' : 'Settings',
+    profile: isMarathi ? 'माझे खाते' : 'Profile',
+    myProfile: isMarathi ? 'माझे खाते' : 'My Profile',
+    logout: isMarathi ? 'बाहेर पडा' : 'Logout',
+  };
+
   return (
     <>
       {/* 📱 MOBILE BOTTOM NAV */}
@@ -29,19 +41,19 @@ export default function Navbar() {
       <div className="flex justify-around items-center h-16 max-w-md mx-auto">
         <Link to="/" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/') ? activeClass : inactiveClass}`}>
           <span className="text-xl">🏠</span>
-          <span className="text-[10px] font-medium">Home</span>
+          <span className="text-[10px] font-medium">{t.home}</span>
         </Link>
         
         <Link to="/books" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/books') ? activeClass : inactiveClass}`}>
           <span className="text-xl">📚</span>
-          <span className="text-[10px] font-medium">Books</span>
+          <span className="text-[10px] font-medium">{t.mobileBooks}</span>
         </Link>
 
 
 
         <Link to="/settings" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/settings') ? activeClass : inactiveClass}`}>
           <span className="text-xl">{userProfile?.isAdmin ? '⚙️' : '👤'}</span>
-          <span className="text-[10px] font-medium">{userProfile?.isAdmin ? 'Settings' : 'Profile'}</span>
+          <span className="text-[10px] font-medium">{userProfile?.isAdmin ? t.settings : t.profile}</span>
         </Link>
       </div>
     </nav>
@@ -56,13 +68,13 @@ export default function Navbar() {
               </Link>
               <div className="ml-10 flex items-baseline space-x-4">
                 <Link to="/" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
-                  Dashboard
+                  {t.dashboard}
                 </Link>
                 <Link to="/books" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/books') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
-                  Catalog
+                  {t.books}
                 </Link>
                 <Link to="/settings" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/settings') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
-                  {userProfile?.isAdmin ? 'Settings' : 'My Profile'}
+                  {userProfile?.isAdmin ? t.settings : t.myProfile}
                 </Link>
               </div>
             </div>
@@ -77,7 +89,7 @@ export default function Navbar() {
                 onClick={handleLogout}
                 className="px-3 py-2 text-sm font-medium text-white transition-colors bg-red-600 rounded-md hover:bg-red-700"
               >
-                Logout
+                {t.logout}
               </button>
             </div>
           </div>

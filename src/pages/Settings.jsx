@@ -421,6 +421,16 @@ export default function Settings() {
 
   const isMarathi = userProfile?.language === 'marathi';
 
+  const tProfile = {
+    personalInfo: isMarathi ? 'वैयक्तिक माहिती' : 'Personal Information',
+    displayName: isMarathi ? 'तुमचे नाव' : 'Display Name',
+    phone: isMarathi ? 'फोन नंबर' : 'Phone Number',
+    language: isMarathi ? 'भाषा' : 'Display Language',
+    email: isMarathi ? 'ईमेल' : 'Email Address (Read-only)',
+    save: isMarathi ? 'सेव्ह करा' : 'Save Profile',
+    saving: isMarathi ? 'सेव्ह करत आहे...' : 'Saving...'
+  };
+
   return (
     <div className={`max-w-6xl p-6 mx-auto mt-8 rounded-lg shadow-md ${isDarkMode ? 'bg-[#1e1e1e] text-gray-200' : 'bg-white text-gray-900'}`}>
       <h1 className="mb-6 text-3xl font-bold">{isMarathi ? 'सेटिंग्ज हब' : 'Settings Hub'}</h1>
@@ -463,22 +473,11 @@ export default function Settings() {
           <div className="space-y-6">
             <div className={`p-6 border rounded-lg shadow-sm ${isDarkMode ? 'bg-[#252525] border-[#333]' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold">Personal Information</h2>
+                <h2 className="text-xl font-bold">{tProfile.personalInfo}</h2>
               </div>
-              const t = {
-                personalInfo: isMarathi ? 'वैयक्तिक माहिती' : 'Personal Information',
-                displayName: isMarathi ? 'तुमचे नाव' : 'Display Name',
-                phone: isMarathi ? 'फोन नंबर' : 'Phone Number',
-                language: isMarathi ? 'भाषा' : 'Display Language',
-                email: isMarathi ? 'ईमेल' : 'Email Address (Read-only)',
-                save: isMarathi ? 'सेव्ह करा' : 'Save Profile',
-                saving: isMarathi ? 'सेव्ह करत आहे...' : 'Saving...'
-              };
-              
-              return (
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold">{t.displayName}</label>
+                  <label className="block text-sm font-bold">{tProfile.displayName}</label>
                   <input
                     type="text"
                     value={displayName}
@@ -488,7 +487,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold">{t.phone}</label>
+                  <label className="block text-sm font-bold">{tProfile.phone}</label>
                   <input
                     type="tel"
                     value={phoneNumber}
@@ -498,7 +497,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold">{t.language}</label>
+                  <label className="block text-sm font-bold">{tProfile.language}</label>
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
@@ -510,7 +509,7 @@ export default function Settings() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium opacity-70">{t.email}</label>
+                  <label className="block text-sm font-medium opacity-70">{tProfile.email}</label>
                   <input
                     type="email"
                     disabled
@@ -524,11 +523,9 @@ export default function Settings() {
                   disabled={savingProfile}
                   className="w-full px-4 py-2 font-bold text-[#1e1e1e] transition-colors bg-[#4ade80] rounded-md hover:bg-[#3bca6b] disabled:opacity-50"
                 >
-                  {savingProfile ? t.saving : t.save}
+                  {savingProfile ? tProfile.saving : tProfile.save}
                 </button>
               </form>
-              );
-            })()}
             </div>
 
             <div className={`p-6 border rounded-lg shadow-sm ${isDarkMode ? 'bg-[#252525] border-[#333]' : 'bg-white border-gray-200'}`}>

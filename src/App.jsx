@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import MyBooks from './pages/MyBooks';
 import Settings from './pages/Settings';
 import SetupProfile from './pages/SetupProfile';
+import Transactions from './pages/Transactions';
 
 // Protected Route Component
 function PrivateRoute({ children, requireAdmin }) {
@@ -73,6 +74,14 @@ function App() {
             element={
               <PrivateRoute>
                 <SetupProfile />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/transactions" 
+            element={
+              <PrivateRoute requireAdmin={true}>
+                <Transactions />
               </PrivateRoute>
             } 
           />

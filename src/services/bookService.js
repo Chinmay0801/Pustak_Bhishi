@@ -10,6 +10,7 @@ import {
   where,
   serverTimestamp,
   writeBatch,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -81,15 +82,18 @@ export async function bulkDeleteBooks(bookIds) {
 // Borrow a book
 export async function borrowBook(bookId, bookTitle, userId, userName, borrowDate = null) {
   const bDate = borrowDate ? new Date(borrowDate) : new Date();
-  const dueDate = new Date(bDate.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const dueDateRaw = new Date(bDate.getTime() + 90 * 24 * 60 * 60 * 1000);
+  // Store as Firestore Timestamp so .toDate() works uniformly in the UI
+  const borrowedAtTs = borrowDate ? Timestamp.fromDate(bDate) : serverTimestamp();
+  const dueDateTs = Timestamp.fromDate(dueDateRaw);
 
   // 1. Update book status
   await updateBook(bookId, {
     status: "borrowed",
     borrowedBy: userId,
     borrowedByName: userName,
-    borrowedAt: borrowDate ? bDate : serverTimestamp(),
-    dueDate,
+    borrowedAt: borrowedAtTs,
+    dueDate: dueDateTs,
   });
 
   // 2. Create transaction record
@@ -98,8 +102,8 @@ export async function borrowBook(bookId, bookTitle, userId, userName, borrowDate
     bookTitle,
     userId,
     userName,
-    borrowedAt: borrowDate ? bDate : serverTimestamp(),
-    dueDate,
+    borrowedAt: borrowedAtTs,
+    dueDate: dueDateTs,
     returnedAt: null,
     isReturned: false,
   });

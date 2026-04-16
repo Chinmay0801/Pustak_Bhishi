@@ -1,0 +1,2 @@
+Issues 
+1) when you have signed in from google sign and now use normal email and password it gives error  Firebase: Error (auth/invalid-credential)

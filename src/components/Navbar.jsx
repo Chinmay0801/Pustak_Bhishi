@@ -37,12 +37,7 @@ export default function Navbar() {
           <span className="text-[10px] font-medium">Books</span>
         </Link>
 
-        {userProfile?.isAdmin && (
-          <Link to="/admin" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/admin') ? activeClass : inactiveClass}`}>
-            <span className="text-xl">👥</span>
-            <span className="text-[10px] font-medium">Members</span>
-          </Link>
-        )}
+
 
         <Link to="/settings" className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive('/settings') ? activeClass : inactiveClass}`}>
           <span className="text-xl">{userProfile?.isAdmin ? '⚙️' : '👤'}</span>
@@ -66,13 +61,8 @@ export default function Navbar() {
                 <Link to="/books" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/books') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
                   Catalog
                 </Link>
-                {userProfile?.isAdmin && (
-                  <Link to="/admin" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/admin') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
-                    Members List
-                  </Link>
-                )}
                 <Link to="/settings" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/settings') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
-                  {userProfile?.isAdmin ? 'Global Settings' : 'My Profile'}
+                  {userProfile?.isAdmin ? 'Settings' : 'My Profile'}
                 </Link>
               </div>
             </div>

@@ -42,7 +42,7 @@ export default function Login() {
       // 🔥 SMART ERROR HANDLING
       switch (err.code) {
         case 'auth/invalid-credential':
-          setError('This account uses Google Sign-In. Please click "Continue with Google".');
+          setError('Invalid email or password. (If you registered via Google, please click "Continue with Google").');
           break;
         case 'auth/user-not-found':
           setError('No account found. Please register first.');

@@ -4,7 +4,6 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Catalog from './pages/Catalog';
 import Login from './pages/Login';
-import Admin from './pages/Admin';
 import MyBooks from './pages/MyBooks';
 import Settings from './pages/Settings';
 import SetupProfile from './pages/SetupProfile';
@@ -58,14 +57,6 @@ function App() {
             element={
               <PrivateRoute>
                 <MyBooks />
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/admin" 
-            element={
-              <PrivateRoute requireAdmin={true}>
-                <Admin />
               </PrivateRoute>
             } 
           />

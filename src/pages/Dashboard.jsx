@@ -225,7 +225,7 @@ function AdminDashboard() {
             <span className="text-2xl mb-2">📚</span>
             <span className="text-sm font-medium text-white">Catalog</span>
           </Link>
-          <Link to="/admin" className="flex flex-col items-center justify-center p-6 bg-[#1a1a1a] hover:bg-[#222] border border-[#333] rounded-xl transition-colors">
+          <Link to="/settings?tab=members" className="flex flex-col items-center justify-center p-6 bg-[#1a1a1a] hover:bg-[#222] border border-[#333] rounded-xl transition-colors">
             <span className="text-2xl mb-2">👥</span>
             <span className="text-sm font-medium text-white">All members</span>
           </Link>

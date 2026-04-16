@@ -12,6 +12,7 @@ export default function SetupProfile() {
   const [fetchingInvites, setFetchingInvites] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isNewUser, setIsNewUser] = useState(false);
   
   // Manual bootstrap state
   const [manualName, setManualName] = useState('');
@@ -42,24 +43,35 @@ export default function SetupProfile() {
 
   async function handleCompleteSetup(e) {
     if (e) e.preventDefault();
-    if (!selectedInviteId) {
-      setError('Please select your name from the list.');
-      return;
-    }
-
-    const invite = pendingInvites.find(inv => inv.id === selectedInviteId);
-    if (!invite) return;
-
     setLoading(true);
     setError('');
 
     try {
-      await updateUserProfile(currentUser.uid, {
-        displayName: invite.name,
-        phoneNumber: invite.phone,
-        language: 'english'
-      });
-      await deletePendingInvite(invite.id);
+      if (isNewUser) {
+        if (!manualName.trim() || !manualPhone.trim()) {
+           throw new Error("Name and phone are required.");
+        }
+        await updateUserProfile(currentUser.uid, {
+          displayName: manualName.trim(),
+          phoneNumber: manualPhone.trim(),
+          language: 'english'
+        });
+      } else {
+        if (!selectedInviteId) {
+          throw new Error('Please select your name from the list.');
+        }
+
+        const invite = pendingInvites.find(inv => inv.id === selectedInviteId);
+        if (!invite) throw new Error("Invalid selection");
+
+        await updateUserProfile(currentUser.uid, {
+          displayName: invite.name,
+          phoneNumber: invite.phone,
+          language: 'english'
+        });
+        await deletePendingInvite(invite.id);
+      }
+      
       await refreshProfile();
       navigate('/');
     } catch (err) {
@@ -161,36 +173,72 @@ export default function SetupProfile() {
               </div>
             )}
             
-            <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-              <p className="text-center font-semibold text-gray-700 pb-2">Select Your Name:</p>
-              {pendingInvites.map(invite => (
-                <label 
-                  key={invite.id} 
-                  className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors shadow-sm ${selectedInviteId === invite.id ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500' : 'bg-white border-gray-300 hover:bg-gray-50'}`}
-                >
-                  <input 
-                    type="radio" 
-                    name="profileSelection" 
-                    value={invite.id} 
-                    checked={selectedInviteId === invite.id}
-                    onChange={(e) => setSelectedInviteId(e.target.value)}
-                    className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+            {!isNewUser ? (
+              <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                <p className="text-center font-semibold text-gray-700 pb-2">Select Your Pre-Registered Name:</p>
+                {pendingInvites.map(invite => (
+                  <label 
+                    key={invite.id} 
+                    className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors shadow-sm ${selectedInviteId === invite.id ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500' : 'bg-white border-gray-300 hover:bg-gray-50'}`}
+                  >
+                    <input 
+                      type="radio" 
+                      name="profileSelection" 
+                      value={invite.id} 
+                      checked={selectedInviteId === invite.id}
+                      onChange={(e) => setSelectedInviteId(e.target.value)}
+                      className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <div className="ml-4 flex flex-col">
+                      <span className="block text-md font-bold text-gray-900">{invite.name}</span>
+                      <span className="block text-xs text-gray-500">{invite.phone}</span>
+                    </div>
+                  </label>
+                ))}
+
+                <div className="pt-4 text-center">
+                  <button type="button" onClick={() => setIsNewUser(true)} className="text-sm text-indigo-600 font-bold hover:underline">
+                    My name is not on the list (Create New Profile)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 text-left">
+                <button type="button" onClick={() => setIsNewUser(false)} className="mb-4 text-sm text-indigo-600 font-bold hover:underline">
+                    &larr; Back to Name List
+                </button>
+                <div>
+                  <label className="block text-sm font-bold text-gray-900">Your Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualName}
+                    onChange={(e) => setManualName(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 bg-white"
+                    placeholder="E.g. Sachin Tendulkar"
                   />
-                  <div className="ml-4 flex flex-col">
-                    <span className="block text-md font-bold text-gray-900">{invite.name}</span>
-                    <span className="block text-xs text-gray-500">{invite.phone}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-900">Your Phone Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={manualPhone}
+                    onChange={(e) => setManualPhone(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 bg-white"
+                    placeholder="98XXXXXX"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="pt-4">
               <button
                 type="submit"
-                disabled={loading || !selectedInviteId}
+                disabled={loading || (!isNewUser && !selectedInviteId) || (isNewUser && (!manualName || !manualPhone))}
                 className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-extrabold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors shadow-md"
               >
-                {loading ? 'Linking...' : 'Link This Profile'}
+                {loading ? 'Linking...' : (isNewUser ? 'Create Profile' : 'Link This Profile')}
               </button>
             </div>
           </form>

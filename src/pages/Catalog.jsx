@@ -40,8 +40,16 @@ export default function Home() {
   }
 
   const donors = useMemo(() => {
-    const names = books.map((book) => book.contributor).filter(Boolean);
-    return ["all", ...Array.from(new Set(names))];
+    const names = books.map((book) => book.contributor?.trim()).filter(Boolean);
+    const uniqueNames = [];
+    const lowerSet = new Set();
+    names.forEach(name => {
+      if (!lowerSet.has(name.toLowerCase())) {
+        lowerSet.add(name.toLowerCase());
+        uniqueNames.push(name);
+      }
+    });
+    return ["all", ...uniqueNames];
   }, [books]);
 
   function applyFilters() {
@@ -52,7 +60,7 @@ export default function Home() {
         .some((field) => field.toLowerCase().includes(query));
 
       const matchesStatus = statusFilter === 'all' || book.status === statusFilter;
-      const matchesDonor = donorFilter === 'all' || book.contributor === donorFilter;
+      const matchesDonor = donorFilter === 'all' || (book.contributor && book.contributor.trim().toLowerCase() === donorFilter.toLowerCase());
       return matchesSearch && matchesStatus && matchesDonor;
     });
     setFilteredBooks(result);

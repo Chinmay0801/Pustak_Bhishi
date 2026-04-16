@@ -1,4 +1,4 @@
-import { collection, doc, updateDoc, getDocs, getDoc, deleteDoc, query, addDoc } from "firebase/firestore";
+import { collection, doc, updateDoc, setDoc, getDocs, getDoc, deleteDoc, query, addDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { db, auth } from "../firebase";
 
@@ -13,9 +13,9 @@ export async function getAllUsers() {
 
 // Update User Profile (Firestore + Firebase Auth)
 export async function updateUserProfile(uid, data) {
-  // 1. Update Firestore doc
+  // 1. Update Firestore doc (use setDoc with merge to handle new accounts)
   const userRef = doc(db, USERS_COLLECTION, uid);
-  await updateDoc(userRef, data);
+  await setDoc(userRef, data, { merge: true });
 
   // 2. Try to sync Firebase Auth display name if it changed
   if (data.displayName && auth.currentUser && auth.currentUser.uid === uid) {

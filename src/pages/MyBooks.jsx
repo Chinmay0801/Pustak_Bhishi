@@ -1,19 +1,26 @@
 import { useState, useEffect } from 'react';
-import { getActiveTransactions, returnBook } from '../services/bookService';
+import { getActiveTransactions, returnBook, getBooks } from '../services/bookService';
 import { useAuth } from '../context/AuthContext';
 
 export default function MyBooks() {
   const [transactions, setTransactions] = useState([]);
+  const [donatedBooks, setDonatedBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
 
   async function fetchMyBooks() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getActiveTransactions(currentUser.uid);
+      const [data, allBooks] = await Promise.all([
+        getActiveTransactions(currentUser.uid),
+        getBooks()
+      ]);
       setTransactions(data);
+      
+      const donated = allBooks.filter(b => b.contributor?.trim().toLowerCase() === userProfile?.displayName?.trim().toLowerCase());
+      setDonatedBooks(donated);
     } catch (err) {
       console.error("Failed to load my books:", err);
       setError(err.message);
@@ -93,6 +100,34 @@ export default function MyBooks() {
               >
                 Return Book
               </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* --- DONATED BOOKS SECTION --- */}
+      <h2 className="mt-12 mb-6 text-2xl font-bold text-gray-900 border-t pt-8">Books I Contributed</h2>
+      {loading && transactions.length === 0 ? (
+        <div className="flex justify-center p-6">
+          <div className="w-6 h-6 rounded-full animate-spin border-b-2 border-indigo-600"></div>
+        </div>
+      ) : donatedBooks.length === 0 ? (
+        <div className="p-8 text-center bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600">You haven't added any books to the library system yet.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {donatedBooks.map(book => (
+            <div key={book.id} className="p-5 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <h3 className="text-lg font-semibold text-gray-800">{book.title}</h3>
+              <p className="text-sm text-gray-600 mb-2">by {book.author}</p>
+              <div className="flex justify-between items-center text-xs mt-3 bg-white p-2 border rounded">
+                <span className="font-mono text-gray-500">Book #{book.bookNumber || 'N/A'}</span>
+                {book.status === 'borrowed' ? (
+                  <span className="font-bold text-amber-600 px-2 py-1 bg-amber-100 rounded-full">Borrowed</span>
+                ) : (
+                  <span className="font-bold text-green-600 px-2 py-1 bg-green-100 rounded-full">Available</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -68,8 +68,6 @@ export default function Transactions() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [toast, setToast] = useState(null);
 
-  if (!userProfile?.isAdmin) return <Navigate to="/" />;
-
   function showToast(msg, type = 'success') {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
@@ -87,7 +85,7 @@ export default function Transactions() {
     }
   }
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); }, [/* fetchAll is stable enough, but strictly should be wrapped in useCallback if included, empty array is fine for now */]);
 
   async function handleReturn(txn) {
     if (!window.confirm(`Mark "${txn.bookTitle}" as returned and fine cleared for ${txn.userName}?`)) return;
@@ -119,6 +117,8 @@ export default function Transactions() {
     const returned = transactions.filter(t => t.isReturned).length;
     return { active, overdue, fines, returned };
   }, [transactions]);
+
+  if (!userProfile?.isAdmin) return <Navigate to="/" />;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 pb-28">

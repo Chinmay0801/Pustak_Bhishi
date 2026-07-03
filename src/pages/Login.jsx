@@ -12,7 +12,6 @@ export default function Login() {
   const { login, signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
-  // ✅ GOOGLE LOGIN
   async function handleGoogleLogin() {
     setError('');
     setLoading(true);
@@ -25,7 +24,6 @@ export default function Login() {
     setLoading(false);
   }
 
-  // ✅ EMAIL/PASSWORD LOGIN
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -39,7 +37,6 @@ export default function Login() {
       }
       navigate('/');
     } catch (err) {
-      // 🔥 SMART ERROR HANDLING
       switch (err.code) {
         case 'auth/invalid-credential':
           setError('Invalid email or password. (If you registered via Google, please click "Continue with Google").');
@@ -65,95 +62,121 @@ export default function Login() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-gray-100 text-gray-900 px-4">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+    <div className="flex items-center justify-center min-h-[calc(100vh-64px)] px-4 py-10">
+      <div className="w-full max-w-md lg:max-w-4xl lg:grid lg:grid-cols-2 lg:overflow-hidden lg:rounded-3xl lg:border lg:border-[#2a2a2a] lg:shadow-2xl">
 
-        {/* 🔥 TITLE */}
-        <h2 className="text-3xl font-bold text-center">
-          {isLogin ? 'Sign In' : 'Register'}
-        </h2>
-
-        {/* ❌ ERROR MESSAGE */}
-        {error && (
-          <div className="p-3 text-red-700 bg-red-100 rounded text-sm text-center">
-            {error}
+        {/* Branding panel — desktop only */}
+        <div className="hidden lg:flex flex-col justify-between p-10 bg-gradient-to-br from-indigo-700 via-indigo-800 to-[#161616] relative overflow-hidden">
+          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/5 blur-2xl" />
+          <div className="absolute -left-10 bottom-0 w-48 h-48 rounded-full bg-white/5 blur-2xl" />
+          <div className="relative">
+            <div className="flex items-center gap-2">
+              <span className="text-3xl">📚</span>
+              <span className="text-xl font-bold text-white">Pustak Bhishi</span>
+            </div>
+            <p className="mt-6 text-2xl font-semibold text-white leading-snug">
+              Track, borrow &amp; share our Marathi library — together.
+            </p>
           </div>
-        )}
-
-        {/* 🟢 GOOGLE LOGIN */}
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full flex items-center justify-center px-4 py-3 border rounded-md hover:bg-gray-50 disabled:opacity-50 transition font-semibold shadow-sm"
-        >
-          <img
-            src="https://www.svgrepo.com/show/475656/google-color.svg"
-            alt="Google"
-            className="w-5 h-5 mr-3"
-          />
-          Continue with Google
-        </button>
-
-        {/* DIVIDER */}
-        <div className="relative flex items-center py-3">
-          <div className="flex-grow border-t"></div>
-          <span className="px-3 text-sm text-gray-500">or use email</span>
-          <div className="flex-grow border-t"></div>
+          <p className="relative text-sm text-indigo-200/80">
+            800+ books · Borrow &amp; return tracking · Member contributions
+          </p>
         </div>
 
-        {/* 📧 EMAIL FORM */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-
-          <div>
-            <label className="text-sm font-medium">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 mt-1 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-            />
+        {/* Form panel */}
+        <div className="w-full p-6 sm:p-8 lg:p-10 space-y-6 bg-[#161616] border border-[#2a2a2a] rounded-3xl lg:border-0 lg:rounded-none">
+          {/* Mobile-only brand header */}
+          <div className="lg:hidden flex flex-col items-center text-center gap-1 mb-2">
+            <span className="text-4xl">📚</span>
+            <h1 className="text-lg font-bold text-white">Pustak Bhishi</h1>
           </div>
 
           <div>
-            <label className="text-sm font-medium">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 mt-1 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-            />
+            <h2 className="text-2xl font-bold text-white text-center lg:text-left">
+              {isLogin ? 'Welcome back' : 'Create your account'}
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 text-center lg:text-left">
+              {isLogin ? 'Sign in to continue to your library.' : 'Register to start borrowing books.'}
+            </p>
           </div>
+
+          {error && (
+            <div className="p-3 text-sm text-center text-red-300 bg-red-950/60 border border-red-900 rounded-xl">
+              {error}
+            </div>
+          )}
 
           <button
-            type="submit"
+            onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-semibold text-white bg-[#1e1e1e] border border-[#333] rounded-xl hover:bg-[#242424] disabled:opacity-50 transition-all"
           >
-            {loading
-              ? 'Please wait...'
-              : isLogin
-                ? 'Login'
-                : 'Sign Up'}
+            <img
+              src="https://www.svgrepo.com/show/475656/google-color.svg"
+              alt="Google"
+              className="w-5 h-5"
+            />
+            Continue with Google
           </button>
-        </form>
 
-        {/* 🔁 TOGGLE */}
-        <div className="text-center">
-          <button
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError('');
-            }}
-            className="text-sm text-indigo-600 hover:text-indigo-500"
-          >
-            {isLogin
-              ? 'Need an account? Register'
-              : 'Already have an account? Login'}
-          </button>
+          <div className="relative flex items-center py-1">
+            <div className="flex-grow border-t border-[#2a2a2a]" />
+            <span className="px-3 text-xs text-gray-600 uppercase tracking-wider">or use email</span>
+            <div className="flex-grow border-t border-[#2a2a2a]" />
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2.5 bg-[#141414] border border-[#333] rounded-xl text-sm text-white placeholder-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2.5 bg-[#141414] border border-[#333] rounded-xl text-sm text-white placeholder-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all active:scale-[0.99]"
+            >
+              {loading
+                ? 'Please wait…'
+                : isLogin
+                  ? 'Sign In'
+                  : 'Sign Up'}
+            </button>
+          </form>
+
+          <div className="text-center">
+            <button
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError('');
+              }}
+              className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              {isLogin
+                ? "Need an account? Register"
+                : 'Already have an account? Login'}
+            </button>
+          </div>
         </div>
-
       </div>
     </div>
   );

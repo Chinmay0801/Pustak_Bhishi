@@ -1,2 +1,9 @@
 Issues 
 1) when you have signed in from google sign and now use normal email and password it gives error  Firebase: Error (auth/invalid-credential)
+2) any new user isn't able to sign by pre approved sign in method 
+3) there are multiple names same again and again in catlog when you search for books like two 
+4) member list there should only names of members and what book user have take like i have borrowed yogita book so yogita should see under my name book she has boorwed 
+5) general info about member should be displayed number of books she has borrowed her total donation adn number of her books borrowed then mobile number 
+
+
+

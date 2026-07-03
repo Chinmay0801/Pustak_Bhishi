@@ -15,20 +15,20 @@ function OverdueTag({ daysBorrowed }) {
   const daysLeft = 90 - daysBorrowed;
   if (daysBorrowed > 90) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-900/40 border border-red-800/50 text-red-400 text-xs font-bold rounded-full">
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400 text-xs font-bold rounded-full">
         🔴 Overdue by {daysBorrowed - 90} day{daysBorrowed - 90 !== 1 ? 's' : ''} — Fine ₹20 applicable
       </span>
     );
   }
   if (daysLeft <= 10) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-900/40 border border-amber-800/50 text-amber-400 text-xs font-bold rounded-full">
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-full">
         ⚠️ Due in {daysLeft} day{daysLeft !== 1 ? 's' : ''} — Return soon
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-medium rounded-full">
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 text-xs font-medium rounded-full">
       ✅ {daysLeft} days left
     </span>
   );
@@ -41,30 +41,30 @@ function ActiveTab({ transactions, onReturn, loading }) {
   if (loading)
     return (
       <div className="flex justify-center py-16">
-        <div className="w-8 h-8 rounded-full animate-spin border-2 border-[#333] border-t-indigo-500" />
+        <div className="w-8 h-8 rounded-full animate-spin border-2 border-[var(--border-strong)] border-t-indigo-500" />
       </div>
     );
 
   if (transactions.length === 0)
     return (
-      <div className="py-16 text-center bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl">
+      <div className="py-16 text-center bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl">
         <p className="text-4xl mb-3">📭</p>
-        <p className="text-gray-400 font-medium">No books currently borrowed.</p>
-        <p className="text-sm text-gray-600 mt-1">Head to the Catalog to find your next read!</p>
+        <p className="text-[var(--text-secondary)] font-medium">No books currently borrowed.</p>
+        <p className="text-sm text-[var(--text-muted)] mt-1">Head to the Catalog to find your next read!</p>
       </div>
     );
 
   return (
     <div className="space-y-4">
       {transactions.map(txn => (
-        <div key={txn.id} className="p-5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#3a3a3a] transition-colors">
+        <div key={txn.id} className="p-5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[var(--border-strong)] transition-colors">
           <div className="flex items-start gap-4 flex-1 min-w-0">
-            <div className="w-11 h-14 bg-indigo-900/30 rounded-lg flex items-center justify-center shrink-0 text-xl">
+            <div className="w-11 h-14 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center shrink-0 text-xl">
               📚
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-bold text-white truncate">{txn.bookTitle}</p>
-              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+              <p className="text-base font-bold text-[var(--text-primary)] truncate">{txn.bookTitle}</p>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
                 <span>📅 Borrowed: {fmtDate(txn.borrowedAt)}</span>
                 <span>⏰ Due: {fmtDate(txn.dueDate)}</span>
               </div>
@@ -93,15 +93,15 @@ function HistoryTab({ history, loading }) {
   if (loading)
     return (
       <div className="flex justify-center py-16">
-        <div className="w-8 h-8 rounded-full animate-spin border-2 border-[#333] border-t-indigo-500" />
+        <div className="w-8 h-8 rounded-full animate-spin border-2 border-[var(--border-strong)] border-t-indigo-500" />
       </div>
     );
 
   if (history.length === 0)
     return (
-      <div className="py-16 text-center bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl">
+      <div className="py-16 text-center bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl">
         <p className="text-4xl mb-3">📜</p>
-        <p className="text-gray-400 font-medium">No borrowing history yet.</p>
+        <p className="text-[var(--text-secondary)] font-medium">No borrowing history yet.</p>
       </div>
     );
 
@@ -114,22 +114,22 @@ function HistoryTab({ history, loading }) {
         const returnedOnTime = txn.returnedAt && returnedDate <= dueDate;
 
         return (
-          <div key={txn.id} className="p-4 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl flex items-center justify-between gap-4 hover:border-[#3a3a3a] transition-colors">
+          <div key={txn.id} className="p-4 bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl flex items-center justify-between gap-4 hover:border-[var(--border-strong)] transition-colors">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="w-9 h-11 bg-[#222] rounded-lg flex items-center justify-center shrink-0 text-lg">
+              <div className="w-9 h-11 bg-[var(--bg-surface-2)] rounded-lg flex items-center justify-center shrink-0 text-lg">
                 📖
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{txn.bookTitle}</p>
-                <p className="text-xs text-gray-600 mt-0.5">
+                <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{txn.bookTitle}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
                   {fmtDate(txn.borrowedAt)} → {fmtDate(txn.returnedAt)}
                 </p>
               </div>
             </div>
-            <span className={`shrink-0 px-2.5 py-1 text-xs font-bold rounded-full
+            <span className={`shrink-0 px-2.5 py-1 text-xs font-bold rounded-full border
               ${returnedOnTime
-                ? 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/40'
-                : 'bg-red-900/40 text-red-400 border border-red-800/40'
+                ? 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40'
+                : 'bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/40'
               }`}>
               {returnedOnTime ? '✓ On time' : '⚠ Late'}
             </span>
@@ -147,34 +147,34 @@ function ContributedTab({ books, loading }) {
   if (loading)
     return (
       <div className="flex justify-center py-16">
-        <div className="w-8 h-8 rounded-full animate-spin border-2 border-[#333] border-t-indigo-500" />
+        <div className="w-8 h-8 rounded-full animate-spin border-2 border-[var(--border-strong)] border-t-indigo-500" />
       </div>
     );
 
   if (books.length === 0)
     return (
-      <div className="py-16 text-center bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl">
+      <div className="py-16 text-center bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl">
         <p className="text-4xl mb-3">📦</p>
-        <p className="text-gray-400 font-medium">You haven't contributed any books yet.</p>
+        <p className="text-[var(--text-secondary)] font-medium">You haven't contributed any books yet.</p>
       </div>
     );
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {books.map(book => (
-        <div key={book.id} className="p-4 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl flex items-center gap-4 hover:border-indigo-800/40 transition-colors">
-          <div className="w-11 h-14 bg-indigo-900/20 rounded-lg flex items-center justify-center shrink-0 text-xl border border-indigo-900/30">
+        <div key={book.id} className="p-4 bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl flex items-center gap-4 hover:border-indigo-300 dark:hover:border-indigo-800/40 transition-colors">
+          <div className="w-11 h-14 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg flex items-center justify-center shrink-0 text-xl border border-indigo-200 dark:border-indigo-900/30">
             📚
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white truncate">{book.title}</p>
-            <p className="text-xs text-gray-500">by {book.author}</p>
+            <p className="text-sm font-bold text-[var(--text-primary)] truncate">{book.title}</p>
+            <p className="text-xs text-[var(--text-secondary)]">by {book.author}</p>
             <div className="mt-2 flex items-center justify-between">
-              <span className="text-[10px] font-mono text-gray-600">#{book.bookNumber || 'N/A'}</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full
+              <span className="text-[10px] font-mono text-[var(--text-muted)]">#{book.bookNumber || 'N/A'}</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border
                 ${book.status === 'borrowed'
-                  ? 'bg-amber-900/40 text-amber-400 border border-amber-800/40'
-                  : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/40'
+                  ? 'bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40'
+                  : 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40'
                 }`}>
                 {book.status === 'borrowed' ? '● Borrowed' : '● Available'}
               </span>
@@ -276,18 +276,18 @@ export default function MyBooks() {
     <div className="max-w-3xl mx-auto px-4 py-6 pb-28">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl text-sm font-semibold shadow-xl
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl text-sm font-semibold shadow-xl border
           ${toast.type === 'error'
-            ? 'bg-red-900 text-red-100 border border-red-700'
-            : 'bg-emerald-900 text-emerald-100 border border-emerald-700'}`}>
+            ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-100 dark:border-red-700'
+            : 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900 dark:text-emerald-100 dark:border-emerald-700'}`}>
           {toast.type === 'error' ? '❌' : '✅'} {toast.msg}
         </div>
       )}
 
       {/* Page Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">My Books</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">My Books</h1>
+        <p className="text-sm text-[var(--text-secondary)] mt-0.5">
           {userProfile?.displayName || currentUser?.email}
         </p>
       </div>
@@ -295,32 +295,32 @@ export default function MyBooks() {
       {/* Summary Cards */}
       {!loading && (
         <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="p-4 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl text-center">
-            <p className="text-2xl font-light text-white">{transactions.length}</p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1">Borrowed</p>
+          <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl text-center">
+            <p className="text-2xl font-light text-[var(--text-primary)]">{transactions.length}</p>
+            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mt-1">Borrowed</p>
           </div>
-          <div className={`p-4 border rounded-xl text-center ${overdueCount > 0 ? 'bg-red-950/40 border-red-900/50' : 'bg-[#1a1a1a] border-[#2a2a2a]'}`}>
-            <p className={`text-2xl font-light ${overdueCount > 0 ? 'text-red-400' : 'text-white'}`}>{overdueCount}</p>
-            <p className={`text-[10px] uppercase tracking-wider mt-1 ${overdueCount > 0 ? 'text-red-500/70' : 'text-gray-500'}`}>Overdue</p>
+          <div className={`p-4 border rounded-xl text-center ${overdueCount > 0 ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-900/50' : 'bg-[var(--bg-surface)] border-[var(--border)]'}`}>
+            <p className={`text-2xl font-light ${overdueCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-[var(--text-primary)]'}`}>{overdueCount}</p>
+            <p className={`text-[10px] uppercase tracking-wider mt-1 ${overdueCount > 0 ? 'text-red-500 dark:text-red-500/70' : 'text-[var(--text-muted)]'}`}>Overdue</p>
           </div>
-          <div className={`p-4 border rounded-xl text-center ${totalFine > 0 ? 'bg-amber-950/40 border-amber-900/50' : 'bg-[#1a1a1a] border-[#2a2a2a]'}`}>
-            <p className={`text-2xl font-light ${totalFine > 0 ? 'text-amber-400' : 'text-white'}`}>₹{totalFine}</p>
-            <p className={`text-[10px] uppercase tracking-wider mt-1 ${totalFine > 0 ? 'text-amber-500/70' : 'text-gray-500'}`}>Fine due</p>
+          <div className={`p-4 border rounded-xl text-center ${totalFine > 0 ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/50' : 'bg-[var(--bg-surface)] border-[var(--border)]'}`}>
+            <p className={`text-2xl font-light ${totalFine > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--text-primary)]'}`}>₹{totalFine}</p>
+            <p className={`text-[10px] uppercase tracking-wider mt-1 ${totalFine > 0 ? 'text-amber-600/80 dark:text-amber-500/70' : 'text-[var(--text-muted)]'}`}>Fine due</p>
           </div>
         </div>
       )}
 
       {/* Firestore index error helper */}
       {error && (
-        <div className="p-5 mb-6 text-red-300 bg-red-950/60 rounded-xl border border-red-900">
+        <div className="p-5 mb-6 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/60 rounded-xl border border-red-200 dark:border-red-900">
           <h3 className="font-bold text-base mb-1">⚠️ Database Index Required</h3>
           <p className="text-xs mb-2">Firebase needs a composite index. Copy the URL in the error below into your browser and click <strong>Create Index</strong>:</p>
-          <p className="text-[11px] font-mono break-all bg-black/40 p-2 rounded">{error}</p>
+          <p className="text-[11px] font-mono break-all bg-black/5 dark:bg-black/40 p-2 rounded">{error}</p>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-5 bg-[#1a1a1a] border border-[#2a2a2a] p-1 rounded-xl">
+      <div className="flex items-center gap-1 mb-5 bg-[var(--bg-surface)] border border-[var(--border)] p-1 rounded-xl">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -328,13 +328,13 @@ export default function MyBooks() {
             className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center justify-center gap-1.5
               ${activeTab === tab.id
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'text-gray-500 hover:text-gray-300 hover:bg-[#242424]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
               }`}
           >
             {tab.label}
             {tab.count !== null && tab.count > 0 && (
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold
-                ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-[#333] text-gray-400'}`}>
+                ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-[var(--bg-hover)] text-[var(--text-secondary)]'}`}>
                 {tab.count}
               </span>
             )}

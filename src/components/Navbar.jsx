@@ -1,5 +1,19 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+
+function ThemeToggle({ className = '' }) {
+  const { isDark, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className={`w-9 h-9 flex items-center justify-center rounded-full border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors ${className}`}
+    >
+      {isDark ? '☀️' : '🌙'}
+    </button>
+  );
+}
 
 export default function Navbar() {
   const { currentUser, userProfile, logout } = useAuth();
@@ -19,7 +33,7 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
   const activeClass = 'text-[#4ade80]';
-  const inactiveClass = 'text-gray-500 hover:text-gray-300';
+  const inactiveClass = 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]';
 
   const isMarathi = userProfile?.language === 'marathi';
   const t = {
@@ -40,7 +54,7 @@ export default function Navbar() {
   return (
     <>
       {/* ─── MOBILE BOTTOM NAV ─── */}
-      <nav className="md:hidden fixed bottom-0 w-full bg-[#1e1e1e] border-t border-[#333] z-50 pb-safe">
+      <nav className="md:hidden fixed bottom-0 w-full bg-[var(--bg-surface)] border-t border-[var(--border)] z-50 pb-safe">
         <div className={`flex justify-around items-center h-16 max-w-md mx-auto`}>
 
           {/* Home */}
@@ -77,40 +91,41 @@ export default function Navbar() {
       </nav>
 
       {/* ─── DESKTOP TOP NAV ─── */}
-      <nav className="hidden md:block w-full bg-[#1e1e1e] border-b border-[#333] shadow-lg sticky top-0 z-50">
+      <nav className="hidden md:block w-full bg-[var(--bg-surface)] border-b border-[var(--border)] shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Left: Brand + links */}
             <div className="flex items-center gap-8">
-              <Link to="/" className="text-xl font-bold text-white shrink-0">
+              <Link to="/" className="text-xl font-bold text-[var(--text-primary)] shrink-0">
                 Pustak Bhishi
               </Link>
               <div className="flex items-center gap-1">
-                <Link to="/" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                <Link to="/" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/') ? 'bg-[var(--bg-hover)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}>
                   {t.dashboard}
                 </Link>
-                <Link to="/books" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/books') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                <Link to="/books" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/books') ? 'bg-[var(--bg-hover)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}>
                   {t.books}
                 </Link>
                 {!isAdmin && (
-                  <Link to="/my-books" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/my-books') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                  <Link to="/my-books" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/my-books') ? 'bg-[var(--bg-hover)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}>
                     {t.myBooks}
                   </Link>
                 )}
                 {isAdmin && (
-                  <Link to="/transactions" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/transactions') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                  <Link to="/transactions" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/transactions') ? 'bg-[var(--bg-hover)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}>
                     {t.transactions}
                   </Link>
                 )}
-                <Link to="/settings" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/settings') ? 'bg-[#333] text-white' : 'text-gray-400 hover:bg-[#222] hover:text-white'}`}>
+                <Link to="/settings" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/settings') ? 'bg-[var(--bg-hover)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}>
                   {isAdmin ? t.settings : t.myProfile}
                 </Link>
               </div>
             </div>
 
-            {/* Right: user info + logout */}
+            {/* Right: theme toggle + user info + logout */}
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400">{userProfile?.displayName || currentUser.email}</span>
+              <ThemeToggle />
+              <span className="text-sm text-[var(--text-secondary)]">{userProfile?.displayName || currentUser.email}</span>
               {isAdmin && (
                 <span className="px-2 py-1 text-xs font-bold text-[#1e1e1e] bg-[#4ade80] rounded-full">Admin</span>
               )}
@@ -127,3 +142,5 @@ export default function Navbar() {
     </>
   );
 }
+
+export { ThemeToggle };

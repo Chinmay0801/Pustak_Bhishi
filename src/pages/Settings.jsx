@@ -1,25 +1,53 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { updateUserProfile, getAllUsers, updateUserRole, deleteUserDoc, addPendingInvite, getPendingInvites, deletePendingInvite } from '../services/userService';
-import { getPastTransactions, getAllTransactions, getBooks, addBook, returnBook, bulkDeleteBooks } from '../services/bookService';
+import { getPastTransactions, getAllTransactions, getActiveTransactions, getBooks, addBook, returnBook, bulkDeleteBooks } from '../services/bookService';
 import { getGlobalSettings, updateGlobalSettings, initializeGlobalSettings } from '../services/settingsService';
-import { sendPasswordResetEmail, updatePassword } from 'firebase/auth';
+import { sendPasswordResetEmail, updatePassword, EmailAuthProvider, linkWithCredential, deleteUser } from 'firebase/auth';
 import { auth } from '../firebase';
 import * as xlsx from 'xlsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 
+const APP_VERSION = '1.0.0';
+
 // ─────────────────────────────────────────────
 // Shared style tokens (keeps the page visually consistent with
-// Catalog / MyBooks / Transactions)
+// Catalog / MyBooks / Transactions, and theme-aware via CSS vars)
 // ─────────────────────────────────────────────
-const CARD = 'bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-5 sm:p-6';
-const INPUT = 'w-full px-4 py-2.5 bg-[#141414] border border-[#333] rounded-xl text-sm text-white placeholder-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all';
-const LABEL = 'block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5';
+const CARD = 'bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-6';
+const INPUT = 'w-full px-4 py-2.5 bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all';
+const LABEL = 'block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5';
 const BTN_PRIMARY = 'px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50';
 const BTN_DANGER = 'px-4 py-2.5 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all disabled:opacity-50';
 
 function SectionTitle({ children }) {
-  return <h2 className="text-lg font-bold text-white mb-4">{children}</h2>;
+  return <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">{children}</h2>;
+}
+
+function ThemeSwitcher() {
+  const { theme, setTheme } = useTheme();
+  const options = [
+    { id: 'light', label: '☀️ Light' },
+    { id: 'dark', label: '🌙 Dark' },
+  ];
+  return (
+    <div className="flex items-center gap-1 bg-[var(--bg-input)] border border-[var(--border-strong)] p-1 rounded-xl w-fit">
+      {options.map(opt => (
+        <button
+          key={opt.id}
+          onClick={() => setTheme(opt.id)}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap
+            ${theme === opt.id
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+            }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export default function Settings() {
@@ -38,8 +66,11 @@ export default function Settings() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [changingPass, setChangingPass] = useState(false);
+  const [linkPassword, setLinkPassword] = useState('');
+  const [linkingPassword, setLinkingPassword] = useState(false);
   const [pastTransactions, setPastTransactions] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // --- Admin State ---
   const [adminLoading, setAdminLoading] = useState(false);
@@ -88,6 +119,14 @@ export default function Settings() {
     }
   }, [activeTab, userProfile]);
 
+  // Library name / contact are shown to every user in the About card, so
+  // fetch them once regardless of role (admins also get this via loadAdminData).
+  useEffect(() => {
+    getGlobalSettings()
+      .then((settings) => { if (settings) setGlobalSettings((prev) => ({ ...prev, ...settings })); })
+      .catch((err) => console.error('Failed to load library info', err));
+  }, []);
+
   // ===================== PROFILE FUCNTIONS =====================
   async function loadHistory() {
     setLoadingHistory(true);
@@ -129,6 +168,51 @@ export default function Settings() {
       }
     }
     setChangingPass(false);
+  }
+
+  async function handleLinkPassword(e) {
+    e.preventDefault();
+    if (!linkPassword.trim() || linkPassword.length < 6) {
+      alert('Password must be at least 6 characters.');
+      return;
+    }
+    setLinkingPassword(true);
+    try {
+      const credential = EmailAuthProvider.credential(currentUser.email, linkPassword);
+      await linkWithCredential(currentUser, credential);
+      alert('Password added! You can now sign in with either Google or your email + password.');
+      setLinkPassword('');
+    } catch (err) {
+      if (err.code === 'auth/requires-recent-login') {
+        alert('For security, please sign out, sign back in with Google, then try again.');
+      } else {
+        alert('Failed to add password: ' + err.message);
+      }
+    }
+    setLinkingPassword(false);
+  }
+
+  async function handleDeleteAccount() {
+    if (!window.confirm('This will permanently delete your Pustak Bhishi account and profile. This cannot be undone. Continue?')) return;
+    setDeletingAccount(true);
+    try {
+      const active = await getActiveTransactions(currentUser.uid);
+      if (active.length > 0) {
+        alert(`You still have ${active.length} book(s) borrowed. Please return them before deleting your account.`);
+        setDeletingAccount(false);
+        return;
+      }
+      await deleteUserDoc(currentUser.uid);
+      await deleteUser(currentUser);
+      navigate('/login');
+    } catch (err) {
+      if (err.code === 'auth/requires-recent-login') {
+        alert('For security, please log out and log back in, then try deleting your account again.');
+      } else {
+        alert('Failed to delete account: ' + err.message);
+      }
+      setDeletingAccount(false);
+    }
   }
 
   // Check if they are a Google Sign In user
@@ -439,12 +523,12 @@ export default function Settings() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">{isMarathi ? 'सेटिंग्ज हब' : 'Settings Hub'}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{userProfile?.displayName || currentUser.email}</p>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">{isMarathi ? 'सेटिंग्ज हब' : 'Settings Hub'}</h1>
+        <p className="text-sm text-[var(--text-secondary)] mt-0.5">{userProfile?.displayName || currentUser.email}</p>
       </div>
 
       {/* TABS */}
-      <div className="flex items-center gap-1 mb-6 bg-[#1a1a1a] border border-[#2a2a2a] p-1 rounded-xl overflow-x-auto">
+      <div className="flex items-center gap-1 mb-6 bg-[var(--bg-surface)] border border-[var(--border)] p-1 rounded-xl overflow-x-auto">
         {TABS.filter(t => !t.adminOnly || userProfile?.isAdmin).map(tab => (
           <button
             key={tab.id}
@@ -452,7 +536,7 @@ export default function Settings() {
             className={`flex-1 min-w-[110px] py-2.5 px-3 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center justify-center gap-1.5
               ${activeTab === tab.id
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'text-gray-500 hover:text-gray-300 hover:bg-[#242424]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
               }`}
           >
             <span>{tab.icon}</span> {tab.label}
@@ -516,12 +600,36 @@ export default function Settings() {
             </div>
 
             <div className={CARD}>
+              <SectionTitle>Appearance</SectionTitle>
+              <p className="text-sm text-[var(--text-secondary)] mb-3">Choose how Pustak Bhishi looks on this device.</p>
+              <ThemeSwitcher />
+            </div>
+
+            <div className={CARD}>
               <SectionTitle>Security</SectionTitle>
 
               {isGoogleUser ? (
-                <p className="text-sm text-gray-400 border border-[#333] p-3 rounded-xl bg-[#141414]">
-                  🟢 You are signed in via Google. Your password is securely managed by Google.
-                </p>
+                <div className="space-y-4">
+                  <p className="text-sm text-[var(--text-secondary)] border border-[var(--border-strong)] p-3 rounded-xl bg-[var(--bg-surface-2)]">
+                    🟢 You're signed in via Google. Add a password below so you can also sign in with just your email — handy if Google sign-in isn't available.
+                  </p>
+                  <form onSubmit={handleLinkPassword} className="space-y-4">
+                    <div>
+                      <label className={LABEL}>Add a Password</label>
+                      <input
+                        type="password"
+                        value={linkPassword}
+                        onChange={(e) => setLinkPassword(e.target.value)}
+                        placeholder="Choose a password (min 6 characters)"
+                        minLength={6}
+                        className={INPUT}
+                      />
+                    </div>
+                    <button type="submit" disabled={linkingPassword || !linkPassword} className={BTN_PRIMARY}>
+                      {linkingPassword ? 'Adding...' : 'Add Password'}
+                    </button>
+                  </form>
+                </div>
               ) : (
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <div>
@@ -545,20 +653,48 @@ export default function Settings() {
                 </form>
               )}
             </div>
+
+            <div className={CARD}>
+              <SectionTitle>About</SectionTitle>
+              <div className="space-y-2 text-sm text-[var(--text-secondary)]">
+                <p><span className="font-semibold text-[var(--text-primary)]">Pustak Bhishi</span> · v{APP_VERSION}</p>
+                {globalSettings.libraryName && <p>{globalSettings.libraryName}</p>}
+                {globalSettings.contactNumber && (
+                  <a
+                    href={`https://wa.me/${globalSettings.contactNumber.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    💬 Contact library admin
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div className={`${CARD} border-red-200 dark:border-red-900/50`}>
+              <h2 className="text-lg font-bold text-red-600 dark:text-red-500 mb-2">Danger Zone</h2>
+              <p className="text-sm text-[var(--text-secondary)] mb-4">
+                Permanently delete your account and profile. Your borrow history stays on the library's record, but you'll lose access immediately. Return any borrowed books first.
+              </p>
+              <button onClick={handleDeleteAccount} disabled={deletingAccount} className={BTN_DANGER}>
+                {deletingAccount ? 'Deleting...' : 'Delete My Account'}
+              </button>
+            </div>
           </div>
 
           <div className={`${CARD} h-fit`}>
             <SectionTitle>My Borrow History</SectionTitle>
             {loadingHistory ? (
-              <p className="text-sm text-gray-500">Loading history...</p>
+              <p className="text-sm text-[var(--text-muted)]">Loading history...</p>
             ) : pastTransactions.length === 0 ? (
-              <p className="text-sm text-gray-500">No past transactions found.</p>
+              <p className="text-sm text-[var(--text-muted)]">No past transactions found.</p>
             ) : (
               <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
                 {pastTransactions.map(txn => (
-                  <div key={txn.id} className="p-3 bg-[#141414] border border-[#2a2a2a] rounded-xl">
-                    <p className="text-sm font-semibold text-white">{txn.bookTitle}</p>
-                    <p className="text-xs text-gray-500 mt-1">
+                  <div key={txn.id} className="p-3 bg-[var(--bg-surface-2)] border border-[var(--border)] rounded-xl">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{txn.bookTitle}</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
                       Borrowed: {txn.borrowedAt ? new Date(txn.borrowedAt.toDate()).toLocaleDateString() : 'N/A'}
                       {' · '}
                       Returned: {txn.returnedAt ? new Date(txn.returnedAt.toDate()).toLocaleDateString() : 'N/A'}
@@ -577,20 +713,20 @@ export default function Settings() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className={CARD}>
               <SectionTitle>Bulk Import (Excel)</SectionTitle>
-              <p className="mb-4 text-sm text-gray-500">
-                Select the <code className="px-1.5 py-0.5 rounded bg-[#141414] text-gray-300">.xlsx</code> file containing the book records.
+              <p className="mb-4 text-sm text-[var(--text-secondary)]">
+                Select the <code className="px-1.5 py-0.5 rounded bg-[var(--bg-surface-2)] text-[var(--text-secondary)]">.xlsx</code> file containing the book records.
               </p>
-              <label className="block p-6 text-center border-2 border-dashed border-[#333] rounded-xl cursor-pointer hover:border-indigo-600/60 hover:bg-[#141414] transition-colors">
+              <label className="block p-6 text-center border-2 border-dashed border-[var(--border-strong)] rounded-xl cursor-pointer hover:border-indigo-500/60 hover:bg-[var(--bg-surface-2)] transition-colors">
                 <span className="text-2xl block mb-2">📤</span>
-                <span className="text-sm font-semibold text-gray-300">Choose Excel File</span>
+                <span className="text-sm font-semibold text-[var(--text-secondary)]">Choose Excel File</span>
                 <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} disabled={importLoading} className="hidden" />
               </label>
               {importLoading && importProgress > 0 && (
-                <div className="w-full mt-4 bg-[#2a2a2a] rounded-full h-2">
+                <div className="w-full mt-4 bg-[var(--bg-hover)] rounded-full h-2">
                   <div className="bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div>
                 </div>
               )}
-              {importMessage && <p className="mt-4 text-sm font-medium text-indigo-400">{importMessage}</p>}
+              {importMessage && <p className="mt-4 text-sm font-medium text-indigo-600 dark:text-indigo-400">{importMessage}</p>}
             </div>
 
             <div className={CARD}>
@@ -628,31 +764,31 @@ export default function Settings() {
           <div className={CARD}>
             <SectionTitle>Active Borrowed Books (Process Returns)</SectionTitle>
             {adminLoading ? (
-              <div className="py-4 text-sm text-gray-500">Loading active borrows...</div>
+              <div className="py-4 text-sm text-[var(--text-muted)]">Loading active borrows...</div>
             ) : activeBorrows.length === 0 ? (
-              <div className="py-8 text-center rounded-xl border border-dashed border-[#333] text-gray-500">
+              <div className="py-8 text-center rounded-xl border border-dashed border-[var(--border-strong)] text-[var(--text-muted)]">
                 <p>There are no actively borrowed books right now.</p>
               </div>
             ) : (
               <>
                 {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto rounded-xl border border-[#2a2a2a]">
+                <div className="hidden md:block overflow-x-auto rounded-xl border border-[var(--border)]">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-[#141414] border-b border-[#2a2a2a]">
+                      <tr className="bg-[var(--bg-surface-2)] border-b border-[var(--border)]">
                         {['Book Title', 'Borrowed By', 'Borrowed Date', 'Fine', 'Actions'].map(h => (
-                          <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                          <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#1e1e1e]">
+                    <tbody className="divide-y divide-[var(--border)]">
                       {activeBorrows.map(txn => (
-                        <tr key={txn.id} className="hover:bg-[#1f1f1f] transition-colors">
-                          <td className="px-4 py-3 font-medium text-white max-w-[220px] truncate">{txn.bookTitle}</td>
-                          <td className="px-4 py-3 text-gray-400">{txn.userName || txn.userId}</td>
-                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{txn.borrowedAt ? new Date(txn.borrowedAt.toDate()).toLocaleDateString() : 'Unknown'}</td>
+                        <tr key={txn.id} className="hover:bg-[var(--bg-hover)] transition-colors">
+                          <td className="px-4 py-3 font-medium text-[var(--text-primary)] max-w-[220px] truncate">{txn.bookTitle}</td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">{txn.userName || txn.userId}</td>
+                          <td className="px-4 py-3 text-[var(--text-muted)] whitespace-nowrap">{txn.borrowedAt ? new Date(txn.borrowedAt.toDate()).toLocaleDateString() : 'Unknown'}</td>
                           <td className="px-4 py-3 font-bold">
-                            {txn.fineDue > 0 ? <span className="text-red-400">₹{txn.fineDue}</span> : <span className="text-gray-600">—</span>}
+                            {txn.fineDue > 0 ? <span className="text-red-600 dark:text-red-400">₹{txn.fineDue}</span> : <span className="text-[var(--text-muted)]">—</span>}
                           </td>
                           <td className="px-4 py-3">
                             <button onClick={() => handleAdminReturn(txn)} className="px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-700 rounded-lg hover:bg-emerald-600 transition-colors whitespace-nowrap">Mark Returned</button>
@@ -666,11 +802,11 @@ export default function Settings() {
                 {/* Mobile card list */}
                 <div className="md:hidden space-y-3">
                   {activeBorrows.map(txn => (
-                    <div key={txn.id} className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-xl">
-                      <p className="font-bold text-white text-sm truncate">{txn.bookTitle}</p>
-                      <p className="text-xs text-gray-400 mt-1">👤 {txn.userName || txn.userId}</p>
-                      <p className="text-xs text-gray-600 mt-0.5">📅 {txn.borrowedAt ? new Date(txn.borrowedAt.toDate()).toLocaleDateString() : 'Unknown'}</p>
-                      {txn.fineDue > 0 && <p className="text-xs font-bold text-red-400 mt-1">Fine: ₹{txn.fineDue}</p>}
+                    <div key={txn.id} className="p-4 bg-[var(--bg-surface-2)] border border-[var(--border)] rounded-xl">
+                      <p className="font-bold text-[var(--text-primary)] text-sm truncate">{txn.bookTitle}</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">👤 {txn.userName || txn.userId}</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">📅 {txn.borrowedAt ? new Date(txn.borrowedAt.toDate()).toLocaleDateString() : 'Unknown'}</p>
+                      {txn.fineDue > 0 && <p className="text-xs font-bold text-red-600 dark:text-red-400 mt-1">Fine: ₹{txn.fineDue}</p>}
                       <button onClick={() => handleAdminReturn(txn)} className="mt-3 w-full py-2 text-xs font-bold text-white bg-emerald-700 rounded-lg hover:bg-emerald-600 transition-colors">Mark Returned</button>
                     </div>
                   ))}
@@ -693,7 +829,7 @@ export default function Settings() {
                 <button
                   onClick={executeBulkDelete}
                   disabled={selectedIds.length === 0 || bulkDeleting}
-                  className={`whitespace-nowrap ${selectedIds.length === 0 ? 'px-4 py-2.5 text-sm font-bold text-white bg-red-900/50 rounded-xl opacity-50 cursor-not-allowed' : BTN_DANGER}`}
+                  className={`whitespace-nowrap ${selectedIds.length === 0 ? 'px-4 py-2.5 text-sm font-bold text-white bg-red-300 dark:bg-red-900/50 rounded-xl opacity-50 cursor-not-allowed' : BTN_DANGER}`}
                 >
                   {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}
                 </button>
@@ -701,16 +837,16 @@ export default function Settings() {
             </div>
 
             {adminLoading ? (
-              <div className="py-4 text-sm text-gray-500">Loading catalog...</div>
+              <div className="py-4 text-sm text-[var(--text-muted)]">Loading catalog...</div>
             ) : filteredLibraryBooks.length === 0 ? (
-              <div className="py-8 text-center rounded-xl border border-dashed border-[#333] text-gray-500">No books found.</div>
+              <div className="py-8 text-center rounded-xl border border-dashed border-[var(--border-strong)] text-[var(--text-muted)]">No books found.</div>
             ) : (
               <>
                 {/* Desktop table */}
-                <div className="hidden md:block overflow-y-auto max-h-[600px] rounded-xl border border-[#2a2a2a]">
+                <div className="hidden md:block overflow-y-auto max-h-[600px] rounded-xl border border-[var(--border)]">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10">
-                      <tr className="bg-[#141414] border-b border-[#2a2a2a]">
+                      <tr className="bg-[var(--bg-surface-2)] border-b border-[var(--border)]">
                         <th className="px-4 py-3 text-left w-12">
                           <input
                             type="checkbox"
@@ -724,25 +860,25 @@ export default function Settings() {
                             }}
                           />
                         </th>
-                        <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Num</th>
-                        <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Title</th>
-                        <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Num</th>
+                        <th className="px-4 py-3 text-left text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Title</th>
+                        <th className="px-4 py-3 text-left text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#1e1e1e]">
+                    <tbody className="divide-y divide-[var(--border)]">
                       {filteredLibraryBooks.map(book => (
                         <tr
                           key={book.id}
                           onClick={() => toggleSelection(book.id)}
-                          className={`cursor-pointer transition-colors ${selectedIds.includes(book.id) ? 'bg-indigo-950/40' : 'hover:bg-[#1f1f1f]'}`}
+                          className={`cursor-pointer transition-colors ${selectedIds.includes(book.id) ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'hover:bg-[var(--bg-hover)]'}`}
                         >
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <input type="checkbox" checked={selectedIds.includes(book.id)} onChange={() => toggleSelection(book.id)} />
                           </td>
-                          <td className="px-4 py-3 text-gray-500">#{book.bookNumber || 'N/A'}</td>
-                          <td className="px-4 py-3 font-medium text-white max-w-[280px] truncate">{book.title}</td>
+                          <td className="px-4 py-3 text-[var(--text-muted)]">#{book.bookNumber || 'N/A'}</td>
+                          <td className="px-4 py-3 font-medium text-[var(--text-primary)] max-w-[280px] truncate">{book.title}</td>
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${book.status === 'available' ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800/40' : 'bg-amber-900/30 text-amber-400 border-amber-800/40'}`}>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${book.status === 'available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/40' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/40'}`}>
                               {book.status}
                             </span>
                           </td>
@@ -758,7 +894,7 @@ export default function Settings() {
                     <div
                       key={book.id}
                       onClick={() => toggleSelection(book.id)}
-                      className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${selectedIds.includes(book.id) ? 'bg-indigo-950/40 border-indigo-800/50' : 'bg-[#141414] border-[#2a2a2a]'}`}
+                      className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${selectedIds.includes(book.id) ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-800/50' : 'bg-[var(--bg-surface-2)] border-[var(--border)]'}`}
                     >
                       <input
                         type="checkbox"
@@ -767,10 +903,10 @@ export default function Settings() {
                         onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{book.title}</p>
-                        <p className="text-xs text-gray-500">#{book.bookNumber || 'N/A'}</p>
+                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{book.title}</p>
+                        <p className="text-xs text-[var(--text-muted)]">#{book.bookNumber || 'N/A'}</p>
                       </div>
-                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${book.status === 'available' ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800/40' : 'bg-amber-900/30 text-amber-400 border-amber-800/40'}`}>
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${book.status === 'available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/40' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/40'}`}>
                         {book.status}
                       </span>
                     </div>
@@ -788,7 +924,7 @@ export default function Settings() {
           <div className={CARD}>
             <SectionTitle>Registered Member List</SectionTitle>
             {adminLoading ? (
-              <p className="text-sm text-gray-500">Loading...</p>
+              <p className="text-sm text-[var(--text-muted)]">Loading...</p>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {allUsers.map(user => {
@@ -797,18 +933,18 @@ export default function Settings() {
                   const totalDonated = adminBooks.filter(b => b.contributor && b.contributor.trim().toLowerCase() === (user.displayName || '').trim().toLowerCase()).length;
 
                   return (
-                    <div key={user.uid} className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-xl">
+                    <div key={user.uid} className="p-4 bg-[var(--bg-surface-2)] border border-[var(--border)] rounded-xl">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-white truncate">{user.displayName || 'No Name'}</p>
-                          <p className="text-xs text-gray-500 truncate">{user.phoneNumber || 'No phone'} · {user.email}</p>
+                          <p className="text-sm font-bold text-[var(--text-primary)] truncate">{user.displayName || 'No Name'}</p>
+                          <p className="text-xs text-[var(--text-muted)] truncate">{user.phoneNumber || 'No phone'} · {user.email}</p>
                         </div>
-                        <span className={`shrink-0 px-2 py-1 text-[10px] font-bold rounded-full ${user.isAdmin ? 'bg-indigo-900/40 text-indigo-400 border border-indigo-800/40' : 'bg-[#242424] text-gray-400 border border-[#333]'}`}>
+                        <span className={`shrink-0 px-2 py-1 text-[10px] font-bold rounded-full border ${user.isAdmin ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:border-indigo-800/40' : 'bg-[var(--bg-hover)] text-[var(--text-secondary)] border-[var(--border-strong)]'}`}>
                           {user.isAdmin ? 'Admin' : 'Member'}
                         </span>
                       </div>
 
-                      <p className="text-xs font-semibold text-emerald-400 mb-2">
+                      <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2">
                         📗 Donated: {totalDonated} · 📖 Borrowed: {countBorrowed} active
                       </p>
 
@@ -818,8 +954,8 @@ export default function Settings() {
                             const bookInfo = adminBooks.find(b => b.id === t.bookId);
                             const donor = bookInfo?.contributor ? bookInfo.contributor : 'Library';
                             return (
-                              <p key={t.id} className="text-xs text-gray-500 border-l-2 border-emerald-700/60 pl-2">
-                                <span className="font-medium text-gray-300">{t.bookTitle}</span>
+                              <p key={t.id} className="text-xs text-[var(--text-muted)] border-l-2 border-emerald-500/60 pl-2">
+                                <span className="font-medium text-[var(--text-secondary)]">{t.bookTitle}</span>
                                 <span className="italic ml-1">(from {donor})</span>
                               </p>
                             );
@@ -827,16 +963,16 @@ export default function Settings() {
                         </div>
                       )}
 
-                      <div className="flex flex-wrap gap-2 pt-2 border-t border-[#2a2a2a]">
-                        <button onClick={() => handleResetPassword(user.email)} className="text-xs font-semibold text-blue-400 hover:text-blue-300">Reset Pass</button>
+                      <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border)]">
+                        <button onClick={() => handleResetPassword(user.email)} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-500">Reset Pass</button>
                         {user.uid !== currentUser.uid && (
                           <>
-                            <span className="text-[#333]">·</span>
-                            <button onClick={() => handleToggleAdmin(user.uid, user.isAdmin)} className="text-xs font-semibold text-indigo-400 hover:text-indigo-300">
+                            <span className="text-[var(--border-strong)]">·</span>
+                            <button onClick={() => handleToggleAdmin(user.uid, user.isAdmin)} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">
                               {user.isAdmin ? 'Revoke Admin' : 'Make Admin'}
                             </button>
-                            <span className="text-[#333]">·</span>
-                            <button onClick={() => handleDeleteMember(user.uid, user.email)} className="text-xs font-semibold text-red-500 hover:text-red-400">Remove</button>
+                            <span className="text-[var(--border-strong)]">·</span>
+                            <button onClick={() => handleDeleteMember(user.uid, user.email)} className="text-xs font-semibold text-red-600 dark:text-red-500 hover:text-red-500">Remove</button>
                           </>
                         )}
                       </div>
@@ -856,10 +992,10 @@ export default function Settings() {
             </form>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {pendingInvites.map(invite => (
-                <div key={invite.id} className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-xl relative group">
-                  <p className="font-bold text-white text-sm">{invite.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{invite.phone}</p>
-                  <button onClick={() => handleDeleteInvite(invite.id)} className="absolute right-3 top-3 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold">✕</button>
+                <div key={invite.id} className="p-4 bg-[var(--bg-surface-2)] border border-[var(--border)] rounded-xl relative group">
+                  <p className="font-bold text-[var(--text-primary)] text-sm">{invite.name}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">{invite.phone}</p>
+                  <button onClick={() => handleDeleteInvite(invite.id)} className="absolute right-3 top-3 text-[var(--text-muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold">✕</button>
                 </div>
               ))}
             </div>
@@ -891,7 +1027,7 @@ export default function Settings() {
 
           <div className={`${CARD} flex flex-col justify-center items-center text-center`}>
             <span className="text-3xl mb-2">📊</span>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">Data Export</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-4">Data Export</h3>
             <button onClick={handleExportExcel} className={`w-full ${BTN_PRIMARY}`}>Export Transactions (.xlsx)</button>
           </div>
         </div>

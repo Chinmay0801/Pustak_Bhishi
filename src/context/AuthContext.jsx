@@ -9,9 +9,11 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { ensureBootstrapMarker } from "../services/userService";
 
 const AuthContext = createContext();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   return useContext(AuthContext);
 }
@@ -52,7 +54,13 @@ export function AuthProvider({ children }) {
         const docRef = doc(db, "users", auth.currentUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setUserProfile(docSnap.data());
+          const profile = docSnap.data();
+          setUserProfile(profile);
+          if (profile.isAdmin) {
+            ensureBootstrapMarker(auth.currentUser.uid).catch((err) =>
+              console.error("Failed to write bootstrap marker:", err)
+            );
+          }
         } else {
           setUserProfile(null);
         }

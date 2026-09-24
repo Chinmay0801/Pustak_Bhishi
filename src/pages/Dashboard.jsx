@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getActiveTransactions, getBooks, returnBook } from '../services/bookService';
+import { useLoanPolicy } from '../hooks/useLoanPolicy';
 
 function SectionLabel({ children }) {
   return <h2 className="text-xs font-bold tracking-widest text-[var(--text-muted)] uppercase mb-4">{children}</h2>;
@@ -11,6 +12,7 @@ function MemberDashboard() {
   const { currentUser, userProfile } = useAuth();
   const [activeBorrows, setActiveBorrows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const policy = useLoanPolicy();
 
   useEffect(() => {
     async function fetchMyBooks() {
@@ -28,7 +30,7 @@ function MemberDashboard() {
 
   const totalFines = activeBorrows.reduce((sum, txn) => sum + (txn.fineDue || 0), 0);
   const overdueBookName = totalFines > 0 ? activeBorrows.find(b => b.isOverdue)?.bookTitle : null;
-  const maxOverdueDays = totalFines > 0 ? Math.max(...activeBorrows.filter(b => b.isOverdue).map(b => b.daysBorrowed)) - 90 : 0;
+  const maxOverdueDays = totalFines > 0 ? Math.max(...activeBorrows.filter(b => b.isOverdue).map(b => b.daysOverdue)) : 0;
 
   return (
     <div className="pb-24">
@@ -66,14 +68,14 @@ function MemberDashboard() {
           ) : (
             <div className="space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0 xl:grid-cols-3">
               {activeBorrows.map(book => {
-                const daysLeft = 90 - book.daysBorrowed;
+                const daysLeft = book.daysLeft;
 
                 let statusCls = 'bg-emerald-50 text-emerald-700 dark:bg-[#1a2f1c] dark:text-[#4ade80]';
                 let statusMessage = `${daysLeft} days left`;
 
                 if (book.isOverdue) {
                   statusCls = 'bg-red-50 text-red-700 dark:bg-[#3b1a1a] dark:text-[#f87171]';
-                  statusMessage = `${book.daysBorrowed - 90} days overdue`;
+                  statusMessage = `${book.daysOverdue} days overdue`;
                 } else if (daysLeft <= 10) {
                   statusCls = 'bg-amber-50 text-amber-700 dark:bg-[#3a2d10] dark:text-[#eab308]';
                   statusMessage = `${daysLeft} days left — return soon`;
@@ -106,7 +108,7 @@ function MemberDashboard() {
           >
             Browse all books
           </Link>
-          <p className="mt-4 text-center lg:text-left text-xs text-[var(--text-muted)]">Books are due in <strong className="text-[var(--text-secondary)]">90 days</strong>. Fine after that: <strong className="text-red-500">₹20</strong></p>
+          <p className="mt-4 text-center lg:text-left text-xs text-[var(--text-muted)]">Books are due in <strong className="text-[var(--text-secondary)]">{policy.loanDays} days</strong>. Fine after that: <strong className="text-red-500">₹{policy.fineAmount}</strong></p>
         </div>
       </div>
     </div>
@@ -151,7 +153,7 @@ function AdminDashboard() {
   async function handleMarkPaid(transaction) {
     if (!window.confirm(`Mark fine paid and process physical return for ${transaction.userName}?`)) return;
     try {
-      await returnBook(transaction.bookId, transaction.id);
+      await returnBook(transaction.bookId, transaction.id, { markFinePaid: true });
       fetchDashboardData(); // Refetch perfectly
     } catch (err) {
       alert("Failed to process return: " + err.message);

@@ -23,7 +23,12 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', caughtErrors: 'none' }],
     },
+  },
+  {
+    // Node-run one-off scripts and tooling config
+    files: ['scripts/**/*.js', '*.config.js', 'get_excel_headers.js'],
+    languageOptions: { globals: globals.node },
   },
 ])

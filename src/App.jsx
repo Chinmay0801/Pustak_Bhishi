@@ -1,13 +1,24 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
-import Dashboard from './pages/Dashboard';
-import Catalog from './pages/Catalog';
-import Login from './pages/Login';
-import MyBooks from './pages/MyBooks';
-import Settings from './pages/Settings';
-import SetupProfile from './pages/SetupProfile';
-import Transactions from './pages/Transactions';
+
+// Route-level code splitting: each page (and heavy deps like xlsx) loads on demand.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Catalog = lazy(() => import('./pages/Catalog'));
+const Login = lazy(() => import('./pages/Login'));
+const MyBooks = lazy(() => import('./pages/MyBooks'));
+const Settings = lazy(() => import('./pages/Settings'));
+const SetupProfile = lazy(() => import('./pages/SetupProfile'));
+const Transactions = lazy(() => import('./pages/Transactions'));
+
+function PageLoader() {
+  return (
+    <div className="flex justify-center py-24">
+      <div className="w-8 h-8 rounded-full animate-spin border-2 border-[var(--border-strong)] border-t-indigo-500" />
+    </div>
+  );
+}
 
 // Protected Route Component
 function PrivateRoute({ children, requireAdmin }) {
@@ -35,6 +46,7 @@ function App() {
     <div className="min-h-screen bg-[var(--bg-app)] flex flex-col items-center">
       <Navbar />
       <main className="w-full md:max-w-none max-w-md pb-20 md:pb-6">
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route 
@@ -86,6 +98,7 @@ function App() {
             } 
           />
         </Routes>
+        </Suspense>
       </main>
     </div>
   );

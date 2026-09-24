@@ -1,0 +1,132 @@
+rules_version = '2';
+
+// Pustak Bhishi — Firestore security rules.
+// Deploy: firebase deploy --only firestore:rules,firestore:indexes
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(userPath(request.auth.uid))
+        && get(userPath(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // First-admin bootstrap: allowed only in the same write batch that
+    // creates settings/bootstrap, which can only ever be created once.
+    function bootstrapping() {
+      let marker = /databases/$(database)/documents/settings/bootstrap;
+      return !exists(marker) && existsAfter(marker);
+    }
+
+    function policyFine() {
+      let path = /databases/$(database)/documents/settings/global;
+      return exists(path) ? get(path).data.get('fineAmount', 20) : 20;
+    }
+
+    // ---------------- users ----------------
+    match /users/{uid} {
+      allow read: if signedIn();
+
+      allow create: if request.auth.uid == uid
+        && (request.resource.data.get('isAdmin', false) == false || bootstrapping());
+
+      allow update: if isAdmin()
+        || (request.auth.uid == uid
+            && (!changedKeys().hasAny(['isAdmin']) || bootstrapping()));
+
+      allow delete: if isAdmin() || request.auth.uid == uid;
+    }
+
+    // ---------------- settings ----------------
+    match /settings/global {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /settings/bootstrap {
+      allow read: if signedIn();
+      // An existing admin may write the marker, or the bootstrapping user in
+      // the same batch that makes them admin.
+      allow create: if signedIn()
+        && (isAdmin() || getAfter(userPath(request.auth.uid)).data.get('isAdmin', false) == true);
+      allow update, delete: if false;
+    }
+
+    // ---------------- books ----------------
+    function loanFields() {
+      return ['status', 'borrowedBy', 'borrowedByName', 'borrowedAt', 'dueDate', 'currentTransactionId'];
+    }
+
+    function isBorrowByMember() {
+      return resource.data.get('status', 'available') == 'available'
+        && request.resource.data.status == 'borrowed'
+        && request.resource.data.borrowedBy == request.auth.uid
+        && changedKeys().hasOnly(loanFields());
+    }
+
+    function isReturnByBorrower() {
+      return resource.data.get('borrowedBy', null) == request.auth.uid
+        && request.resource.data.status == 'available'
+        && request.resource.data.borrowedBy == null
+        && changedKeys().hasOnly(loanFields());
+    }
+
+    match /books/{bookId} {
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn() && (isBorrowByMember() || isReturnByBorrower()));
+    }
+
+    // ---------------- transactions ----------------
+    function memberReturnIsHonest() {
+      let overdue = request.time > resource.data.dueDate;
+      let fine = request.resource.data.fineAmount;
+      return changedKeys().hasOnly(['isReturned', 'returnedAt', 'fineAmount', 'finePaid'])
+        && request.resource.data.isReturned == true
+        && request.resource.data.returnedAt == request.time
+        && (overdue
+              ? fine == policyFine() && request.resource.data.finePaid == false
+              : fine == 0 && request.resource.data.finePaid == true);
+    }
+
+    match /transactions/{txnId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.isReturned == false
+        && getAfter(/databases/$(database)/documents/books/$(request.resource.data.bookId)).data.borrowedBy == request.auth.uid;
+
+      allow update: if isAdmin()
+        || (signedIn()
+            && resource.data.userId == request.auth.uid
+            && resource.data.isReturned == false
+            && memberReturnIsHonest());
+
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- pendingInvites ----------------
+    match /pendingInvites/{inviteId} {
+      // New signups must see the list to pick their name.
+      allow read: if signedIn();
+      allow create, update: if isAdmin();
+      // Admins, or a member claiming it in the same transaction that links it
+      // to their profile.
+      allow delete: if isAdmin()
+        || (signedIn() && getAfter(userPath(request.auth.uid)).data.get('claimedInviteId', '') == inviteId);
+    }
+  }
+}

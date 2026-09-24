@@ -10,28 +10,24 @@ import {
   where,
   serverTimestamp,
   writeBatch,
+  runTransaction,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { getLoanPolicy } from "./settingsService";
+import { computeDueDate, computeLoanStatus, fineAtReturn } from "../lib/loanPolicy";
+import { matchUserByName } from "../lib/members";
 
 const BOOKS_COLLECTION = "books";
 const TRANSACTIONS_COLLECTION = "transactions";
+const BATCH_LIMIT = 500;
 
-// Helper for dynamic read-time fine calculation
-function attachFineCalculations(data) {
-  if (!data.borrowedAt || data.isReturned || data.finePaid) {
-    return { ...data, daysBorrowed: 0, isOverdue: false, fineDue: 0 };
-  }
-  
-  const borrowedDate = data.borrowedAt.toDate ? data.borrowedAt.toDate() : new Date(data.borrowedAt);
-  const diffTime = new Date() - borrowedDate;
-  const daysBorrowed = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
-  
-  // Flat ₹20 fine if crossed 90 days.
-  const isOverdue = daysBorrowed > 90;
-  const fineDue = isOverdue ? 20 : 0;
-  
-  return { ...data, daysBorrowed, isOverdue, fineDue };
+async function withLoanStatus(docs) {
+  const policy = await getLoanPolicy();
+  return docs.map((d) => {
+    const data = { id: d.id, ...d.data() };
+    return { ...data, ...computeLoanStatus(data, policy) };
+  });
 }
 
 // Add a new book
@@ -40,6 +36,21 @@ export async function addBook(bookData) {
     ...bookData,
     createdAt: serverTimestamp(),
   });
+}
+
+// Add many books with batched writes (Excel import).
+export async function addBooksBulk(books, onProgress) {
+  let done = 0;
+  for (let i = 0; i < books.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    books.slice(i, i + BATCH_LIMIT).forEach((book) => {
+      batch.set(doc(collection(db, BOOKS_COLLECTION)), { ...book, createdAt: serverTimestamp() });
+    });
+    await batch.commit();
+    done = Math.min(i + BATCH_LIMIT, books.length);
+    onProgress?.(done, books.length);
+  }
+  return done;
 }
 
 // Get all books
@@ -63,93 +74,126 @@ export async function deleteBook(bookId) {
 
 // Bulk delete books (handles arrays > 500 by chunking)
 export async function bulkDeleteBooks(bookIds) {
-  const chunks = [];
-  // Firestore limit is 500 writes per batch
-  for (let i = 0; i < bookIds.length; i += 500) {
-    chunks.push(bookIds.slice(i, i + 500));
-  }
-
-  for (const chunk of chunks) {
+  for (let i = 0; i < bookIds.length; i += BATCH_LIMIT) {
     const batch = writeBatch(db);
-    chunk.forEach((id) => {
-      const bookRef = doc(db, BOOKS_COLLECTION, id);
-      batch.delete(bookRef);
+    bookIds.slice(i, i + BATCH_LIMIT).forEach((id) => {
+      batch.delete(doc(db, BOOKS_COLLECTION, id));
     });
     await batch.commit();
   }
 }
 
-// Borrow a book
-export async function borrowBook(bookId, bookTitle, userId, userName, borrowDate = null) {
-  const bDate = borrowDate ? new Date(borrowDate) : new Date();
-  const dueDateRaw = new Date(bDate.getTime() + 90 * 24 * 60 * 60 * 1000);
-  // Store as Firestore Timestamp so .toDate() works uniformly in the UI
-  const borrowedAtTs = borrowDate ? Timestamp.fromDate(bDate) : serverTimestamp();
-  const dueDateTs = Timestamp.fromDate(dueDateRaw);
+// Set contributorUid on books whose contributor name uniquely matches a member.
+// Returns the number of books linked. Admin only (rules).
+export async function linkContributors(books, users) {
+  const updates = [];
+  for (const book of books) {
+    if (book.contributorUid || !book.contributor) continue;
+    const user = matchUserByName(book.contributor, users);
+    if (user) updates.push([book.id, user.uid]);
+  }
+  for (let i = 0; i < updates.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    updates.slice(i, i + BATCH_LIMIT).forEach(([id, uid]) => {
+      batch.update(doc(db, BOOKS_COLLECTION, id), { contributorUid: uid });
+    });
+    await batch.commit();
+  }
+  return updates.length;
+}
 
-  // 1. Update book status
-  await updateBook(bookId, {
-    status: "borrowed",
-    borrowedBy: userId,
-    borrowedByName: userName,
-    borrowedAt: borrowedAtTs,
-    dueDate: dueDateTs,
+// Borrow a book. Runs as a Firestore transaction so two members can't borrow
+// the same copy, and the book + transaction docs are written together.
+export async function borrowBook(bookId, bookTitle, userId, userName, borrowDate = null) {
+  const policy = await getLoanPolicy();
+  const bDate = borrowDate ? new Date(borrowDate) : new Date();
+  const borrowedAtTs = borrowDate ? Timestamp.fromDate(bDate) : serverTimestamp();
+  const dueDateTs = Timestamp.fromDate(computeDueDate(bDate, policy));
+
+  const bookRef = doc(db, BOOKS_COLLECTION, bookId);
+  const txnRef = doc(collection(db, TRANSACTIONS_COLLECTION));
+
+  await runTransaction(db, async (t) => {
+    const snap = await t.get(bookRef);
+    if (!snap.exists()) throw new Error("This book no longer exists.");
+    if ((snap.data().status ?? "available") !== "available") {
+      throw new Error("Someone just borrowed this book. Refresh to see the latest status.");
+    }
+
+    t.update(bookRef, {
+      status: "borrowed",
+      borrowedBy: userId,
+      borrowedByName: userName,
+      borrowedAt: borrowedAtTs,
+      dueDate: dueDateTs,
+      currentTransactionId: txnRef.id,
+    });
+    t.set(txnRef, {
+      bookId,
+      bookTitle,
+      userId,
+      userName,
+      borrowedAt: borrowedAtTs,
+      dueDate: dueDateTs,
+      returnedAt: null,
+      isReturned: false,
+    });
   });
 
-  // 2. Create transaction record
-  return addDoc(collection(db, TRANSACTIONS_COLLECTION), {
-    bookId,
-    bookTitle,
-    userId,
-    userName,
-    borrowedAt: borrowedAtTs,
-    dueDate: dueDateTs,
-    returnedAt: null,
-    isReturned: false,
+  return txnRef;
+}
+
+// Return a book. The fine owed at this moment is recorded on the transaction.
+// Only an admin may pass markFinePaid (they collected the cash); a member's own
+// return leaves any fine outstanding until an admin marks it paid.
+export async function returnBook(bookId, transactionId, { markFinePaid = false } = {}) {
+  const policy = await getLoanPolicy();
+  const bookRef = doc(db, BOOKS_COLLECTION, bookId);
+  const txnRef = doc(db, TRANSACTIONS_COLLECTION, transactionId);
+
+  await runTransaction(db, async (t) => {
+    const [txnSnap, bookSnap] = await Promise.all([t.get(txnRef), t.get(bookRef)]);
+    if (!txnSnap.exists()) throw new Error("Borrow record not found.");
+    const txn = txnSnap.data();
+    if (txn.isReturned) throw new Error("This book has already been returned.");
+
+    const fineAmount = fineAtReturn(txn, policy);
+
+    // The book may have been deleted while on loan — still close the record.
+    if (bookSnap.exists() && bookSnap.data().borrowedBy === txn.userId) {
+      t.update(bookRef, {
+        status: "available",
+        borrowedBy: null,
+        borrowedByName: null,
+        borrowedAt: null,
+        dueDate: null,
+        currentTransactionId: null,
+      });
+    }
+    t.update(txnRef, {
+      isReturned: true,
+      returnedAt: serverTimestamp(),
+      fineAmount,
+      finePaid: fineAmount === 0 || markFinePaid,
+    });
   });
 }
 
-// Return a book AND automatically clear fine if one existed
-export async function returnBook(bookId, transactionId) {
-  // 1. Update book status back to available
-  await updateBook(bookId, {
-    status: "available",
-    borrowedBy: null,
-    borrowedByName: null,
-    borrowedAt: null,
-    dueDate: null,
-  });
-
-  // 2. Mark transaction as returned and perfectly settled
-  const transactionRef = doc(db, TRANSACTIONS_COLLECTION, transactionId);
-  return updateDoc(transactionRef, {
-    isReturned: true,
-    finePaid: true, // Clears the record so it doesn't surface as a pending debt
-    returnedAt: serverTimestamp(),
+// Admin: record that an outstanding fine on a returned book was collected.
+export async function markFinePaid(transactionId) {
+  return updateDoc(doc(db, TRANSACTIONS_COLLECTION, transactionId), {
+    finePaid: true,
+    finePaidAt: serverTimestamp(),
   });
 }
 
 // Get active transactions (for a specific user or all if userId is omitted)
 export async function getActiveTransactions(userId = null) {
-  let q;
-  if (userId) {
-    q = query(
-      collection(db, TRANSACTIONS_COLLECTION),
-      where("userId", "==", userId),
-      where("isReturned", "==", false),
-      orderBy("borrowedAt", "desc")
-    );
-  } else {
-    // Admin query
-    q = query(
-      collection(db, TRANSACTIONS_COLLECTION),
-      where("isReturned", "==", false),
-      orderBy("borrowedAt", "desc")
-    );
-  }
-  
+  const filters = [where("isReturned", "==", false)];
+  if (userId) filters.unshift(where("userId", "==", userId));
+  const q = query(collection(db, TRANSACTIONS_COLLECTION), ...filters, orderBy("borrowedAt", "desc"));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => attachFineCalculations({ id: doc.id, ...doc.data() }));
+  return withLoanStatus(snapshot.docs);
 }
 
 // Get historic past transactions for a specific user
@@ -160,18 +204,13 @@ export async function getPastTransactions(userId) {
     where("isReturned", "==", true),
     orderBy("returnedAt", "desc")
   );
-  
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  return withLoanStatus(snapshot.docs);
 }
 
 // Get ALL transactions (returned and active) for Admin Export
 export async function getAllTransactions() {
-  const q = query(
-    collection(db, TRANSACTIONS_COLLECTION),
-    orderBy("borrowedAt", "desc")
-  );
-  
+  const q = query(collection(db, TRANSACTIONS_COLLECTION), orderBy("borrowedAt", "desc"));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => attachFineCalculations({ id: doc.id, ...doc.data() }));
+  return withLoanStatus(snapshot.docs);
 }

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { updateUserProfile, getPendingInvites, deletePendingInvite } from '../services/userService';
+import { updateUserProfile, getPendingInvites, claimInvite, canBootstrapAdmin, bootstrapFirstAdmin } from '../services/userService';
+
+const hasDigits = (phone) => /\d{6,}/.test((phone || '').replace(/\D/g, ''));
 
 export default function SetupProfile() {
   const { currentUser, userProfile, refreshProfile } = useAuth();
@@ -14,6 +16,7 @@ export default function SetupProfile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
+  const [canBootstrap, setCanBootstrap] = useState(false);
 
   // Manual bootstrap state
   const [manualName, setManualName] = useState('');
@@ -32,8 +35,13 @@ export default function SetupProfile() {
   function loadInvites() {
     setFetchingInvites(true);
     setInviteFetchFailed(false);
-    getPendingInvites()
-      .then(setPendingInvites)
+    Promise.all([getPendingInvites(), canBootstrapAdmin()])
+      .then(([invites, bootstrap]) => {
+        setPendingInvites(invites);
+        setCanBootstrap(bootstrap);
+        // Nothing to claim: go straight to the self-registration form.
+        if (!bootstrap && invites.length === 0) setIsNewUser(true);
+      })
       .catch((err) => {
         // Distinct from "no invites exist yet" — a failed fetch must never be
         // treated as "you're the first user", or every visitor who hits a
@@ -71,12 +79,13 @@ export default function SetupProfile() {
         const invite = pendingInvites.find(inv => inv.id === selectedInviteId);
         if (!invite) throw new Error("Invalid selection");
 
-        await updateUserProfile(currentUser.uid, {
-          displayName: invite.name,
-          phoneNumber: invite.phone,
-          language: 'english'
+        if (!hasDigits(invite.phone) && !manualPhone.trim()) {
+          throw new Error('Please enter your phone number.');
+        }
+        await claimInvite(currentUser.uid, invite.id, {
+          language: 'english',
+          ...(hasDigits(invite.phone) ? {} : { phoneNumber: manualPhone.trim() }),
         });
-        await deletePendingInvite(invite.id);
       }
 
       await refreshProfile();
@@ -97,12 +106,13 @@ export default function SetupProfile() {
     setError('');
 
     try {
-      // Force admin rights for the first user bootstrapping the system
-      await updateUserProfile(currentUser.uid, {
+      // First user becomes admin. Rules allow this only once, in the same
+      // batch that creates the settings/bootstrap marker.
+      await bootstrapFirstAdmin(currentUser.uid, {
         displayName: manualName.trim(),
         phoneNumber: manualPhone.trim(),
         language: 'english',
-        isAdmin: true
+        email: currentUser.email,
       });
       await refreshProfile();
       navigate('/');
@@ -117,6 +127,7 @@ export default function SetupProfile() {
     return null;
   }
 
+  const selectedInvite = pendingInvites.find(inv => inv.id === selectedInviteId);
   const INPUT = 'mt-1 block w-full px-3 py-2 bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-md shadow-sm text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500';
 
   return (
@@ -142,10 +153,10 @@ export default function SetupProfile() {
               Try Again
             </button>
           </div>
-        ) : pendingInvites.length === 0 ? (
+        ) : canBootstrap ? (
           <div className="mt-8 p-6 text-center bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900 shadow-sm">
             <h3 className="text-amber-800 dark:text-amber-300 font-bold mb-2 text-lg">System Bootstrap (Admin Setup)</h3>
-            <p className="text-sm text-amber-700 dark:text-amber-400/80 mb-6">Since the database indicates no invitations have been created, you will be registered as the Administrator.</p>
+            <p className="text-sm text-amber-700 dark:text-amber-400/80 mb-6">No administrator exists yet, so you will be registered as the library's first Administrator.</p>
 
             {error && (
               <div className="p-3 mb-4 text-sm text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-950/40 rounded border border-red-200 dark:border-red-900 text-left">
@@ -216,6 +227,20 @@ export default function SetupProfile() {
                   </label>
                 ))}
 
+                {selectedInvite && !hasDigits(selectedInvite.phone) && (
+                  <div className="pt-2">
+                    <label className="block text-sm font-bold text-[var(--text-primary)]">Your Phone Number</label>
+                    <input
+                      type="tel"
+                      required
+                      value={manualPhone}
+                      onChange={(e) => setManualPhone(e.target.value)}
+                      className={INPUT}
+                      placeholder="98XXXXXX"
+                    />
+                  </div>
+                )}
+
                 <div className="pt-4 text-center">
                   <button type="button" onClick={() => setIsNewUser(true)} className="text-sm text-indigo-500 font-bold hover:underline">
                     My name is not on the list (Create New Profile)
@@ -224,9 +249,9 @@ export default function SetupProfile() {
               </div>
             ) : (
               <div className="space-y-4 text-left">
-                <button type="button" onClick={() => setIsNewUser(false)} className="mb-4 text-sm text-indigo-500 font-bold hover:underline">
+                {pendingInvites.length > 0 && <button type="button" onClick={() => setIsNewUser(false)} className="mb-4 text-sm text-indigo-500 font-bold hover:underline">
                     &larr; Back to Name List
-                </button>
+                </button>}
                 <div>
                   <label className="block text-sm font-bold text-[var(--text-primary)]">Your Full Name</label>
                   <input

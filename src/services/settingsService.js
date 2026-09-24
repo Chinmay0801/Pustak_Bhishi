@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { DEFAULT_LOAN_POLICY, normalizePolicy } from "../lib/loanPolicy";
 
 const SETTINGS_DOC = "settings/global";
 
@@ -7,12 +8,12 @@ const SETTINGS_DOC = "settings/global";
 export async function initializeGlobalSettings() {
   const settingsRef = doc(db, SETTINGS_DOC);
   const snap = await getDoc(settingsRef);
-  
+
   if (!snap.exists()) {
     await setDoc(settingsRef, {
       libraryName: "Pustak Bhishi",
-      maxBorrowDays: 30,
       contactNumber: "",
+      ...DEFAULT_LOAN_POLICY,
     });
   }
 }
@@ -27,5 +28,21 @@ export async function getGlobalSettings() {
 // Update Global Settings (Admin)
 export async function updateGlobalSettings(data) {
   const settingsRef = doc(db, SETTINGS_DOC);
-  return setDoc(settingsRef, data, { merge: true });
+  await setDoc(settingsRef, data, { merge: true });
+  policyPromise = null;
+}
+
+// Loan period + fine amount, cached for the session.
+let policyPromise = null;
+export function getLoanPolicy() {
+  if (!policyPromise) {
+    policyPromise = getGlobalSettings()
+      .then(normalizePolicy)
+      .catch((err) => {
+        console.error("Failed to load loan policy, using defaults", err);
+        policyPromise = null;
+        return { ...DEFAULT_LOAN_POLICY };
+      });
+  }
+  return policyPromise;
 }

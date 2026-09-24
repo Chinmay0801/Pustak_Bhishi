@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getBooks, deleteBook, borrowBook } from '../services/bookService';
 import { useAuth } from '../context/AuthContext';
+import { useLoanPolicy } from '../hooks/useLoanPolicy';
+import { computeLoanStatus } from '../lib/loanPolicy';
 
 // ─────────────────────────────────────────────
 // Generate a stable accent color from book title
@@ -35,16 +37,16 @@ function getInitials(title = '') {
 // ─────────────────────────────────────────────
 // Borrow Confirmation Modal
 // ─────────────────────────────────────────────
-function BorrowModal({ book, onConfirm, onCancel, loading }) {
+function BorrowModal({ book, policy, onConfirm, onCancel, loading }) {
   const today = new Date().toISOString().split('T')[0];
   const [borrowDate, setBorrowDate] = useState(today);
   const accent = getAccentColor(book.title);
 
   const dueDate = useMemo(() => {
     const d = new Date(borrowDate);
-    d.setDate(d.getDate() + 90);
+    d.setDate(d.getDate() + policy.loanDays);
     return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  }, [borrowDate]);
+  }, [borrowDate, policy.loanDays]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm px-4 pb-8 sm:pb-0">
@@ -88,14 +90,14 @@ function BorrowModal({ book, onConfirm, onCancel, loading }) {
               <p className="text-sm font-bold text-[var(--text-primary)] mt-0.5">{dueDate}</p>
             </div>
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-800/40">
-              90 days
+              {policy.loanDays} days
             </span>
           </div>
 
           <div className="flex items-center gap-2.5 px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl">
             <span className="text-sm">⚠️</span>
             <p className="text-xs text-amber-700 dark:text-amber-300/80">
-              Fine of <strong className="text-amber-800 dark:text-amber-300">₹20</strong> applies after 90 days.
+              Fine of <strong className="text-amber-800 dark:text-amber-300">₹{policy.fineAmount}</strong> applies after {policy.loanDays} days.
             </p>
           </div>
         </div>
@@ -126,7 +128,7 @@ function BorrowModal({ book, onConfirm, onCancel, loading }) {
 // ─────────────────────────────────────────────
 // Book Card — compact, no image
 // ─────────────────────────────────────────────
-function BookCard({ book, currentUser, userProfile, onBorrow, onDelete }) {
+function BookCard({ book, policy, currentUser, userProfile, onBorrow, onDelete }) {
   const isAvailable = book.status === 'available';
   const isMine = book.borrowedBy === currentUser?.uid;
   const accent = getAccentColor(book.title);
@@ -134,12 +136,11 @@ function BookCard({ book, currentUser, userProfile, onBorrow, onDelete }) {
   // Overdue calculation
   let overdueInfo = null;
   if (!isAvailable && book.borrowedAt) {
-    const borrowedDate = book.borrowedAt?.toDate ? book.borrowedAt.toDate() : new Date(book.borrowedAt);
-    const daysBorrowed = Math.floor((new Date() - borrowedDate) / (1000 * 60 * 60 * 24));
-    if (daysBorrowed > 90) {
-      overdueInfo = { type: 'overdue', text: `Overdue ${daysBorrowed - 90}d — ₹20 fine` };
-    } else if (daysBorrowed > 80) {
-      overdueInfo = { type: 'warn', text: `Due in ${90 - daysBorrowed}d` };
+    const loan = computeLoanStatus(book, policy);
+    if (loan.isOverdue) {
+      overdueInfo = { type: 'overdue', text: `Overdue ${loan.daysOverdue}d — ₹${loan.fineDue} fine` };
+    } else if (loan.daysLeft <= 10) {
+      overdueInfo = { type: 'warn', text: `Due in ${loan.daysLeft}d` };
     }
   }
 
@@ -271,6 +272,7 @@ export default function Catalog() {
   const [borrowLoading, setBorrowLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const { currentUser, userProfile } = useAuth();
+  const policy = useLoanPolicy();
 
   async function fetchBooks() {
     try {
@@ -336,6 +338,8 @@ export default function Catalog() {
       fetchBooks();
     } catch (err) {
       showToast('Failed: ' + err.message, 'error');
+      setBorrowTarget(null);
+      fetchBooks();
     } finally {
       setBorrowLoading(false);
     }
@@ -358,7 +362,7 @@ export default function Catalog() {
       )}
 
       {borrowTarget && (
-        <BorrowModal book={borrowTarget} onConfirm={handleConfirmBorrow} onCancel={() => setBorrowTarget(null)} loading={borrowLoading} />
+        <BorrowModal book={borrowTarget} policy={policy} onConfirm={handleConfirmBorrow} onCancel={() => setBorrowTarget(null)} loading={borrowLoading} />
       )}
 
       {/* Page header */}
@@ -452,6 +456,7 @@ export default function Catalog() {
             <BookCard
               key={book.id}
               book={book}
+              policy={policy}
               currentUser={currentUser}
               userProfile={userProfile}
               onBorrow={setBorrowTarget}

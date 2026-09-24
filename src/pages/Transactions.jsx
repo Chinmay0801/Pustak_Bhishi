@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { getAllTransactions, returnBook } from '../services/bookService';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { getAllTransactions, returnBook, markFinePaid } from '../services/bookService';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 
@@ -14,7 +14,7 @@ function fmtDate(value) {
 
 function getStatus(txn) {
   if (txn.isReturned) {
-    const borrowedDate = txn.borrowedAt?.toDate ? txn.borrowedAt.toDate() : new Date(txn.borrowedAt ?? 0);
+    if (txn.fineDue > 0) return 'fine-due';
     const returnedDate = txn.returnedAt?.toDate ? txn.returnedAt.toDate() : new Date(txn.returnedAt ?? 0);
     const dueDate = txn.dueDate?.toDate ? txn.dueDate.toDate() : new Date(txn.dueDate ?? 0);
     return returnedDate <= dueDate ? 'on-time' : 'late';
@@ -27,6 +27,7 @@ const STATUS_CONFIG = {
   'on-time': { label: 'Returned ✓', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-400 dark:border-emerald-800/40' },
   'late':    { label: 'Returned Late', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-400 dark:border-amber-800/40' },
   'overdue': { label: 'Overdue ⚠', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-400 dark:border-red-800/40' },
+  'fine-due': { label: 'Fine Unpaid', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-400 dark:border-red-800/40' },
   'active':  { label: 'Active', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:border-indigo-800/40' },
 };
 
@@ -73,7 +74,7 @@ export default function Transactions() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getAllTransactions();
@@ -83,15 +84,26 @@ export default function Transactions() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  useEffect(() => { fetchAll(); }, [/* fetchAll is stable enough, but strictly should be wrapped in useCallback if included, empty array is fine for now */]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   async function handleReturn(txn) {
     if (!window.confirm(`Mark "${txn.bookTitle}" as returned and fine cleared for ${txn.userName}?`)) return;
     try {
-      await returnBook(txn.bookId, txn.id);
+      await returnBook(txn.bookId, txn.id, { markFinePaid: true });
       showToast('Book returned and fine cleared!');
+      fetchAll();
+    } catch (err) {
+      showToast('Failed: ' + err.message, 'error');
+    }
+  }
+
+  async function handleMarkFinePaid(txn) {
+    if (!window.confirm(`Mark ₹${txn.fineDue} fine as collected from ${txn.userName}?`)) return;
+    try {
+      await markFinePaid(txn.id);
+      showToast('Fine marked as paid.');
       fetchAll();
     } catch (err) {
       showToast('Failed: ' + err.message, 'error');
@@ -187,6 +199,7 @@ export default function Transactions() {
           <option value="overdue">Overdue</option>
           <option value="on-time">Returned on time</option>
           <option value="late">Returned late</option>
+          <option value="fine-due">Fine unpaid</option>
         </select>
       </div>
 
@@ -246,6 +259,14 @@ export default function Transactions() {
                             {txn.isOverdue ? 'Return + Clear Fine' : 'Mark Returned'}
                           </button>
                         )}
+                        {txn.isReturned && txn.fineDue > 0 && (
+                          <button
+                            onClick={() => handleMarkFinePaid(txn)}
+                            className="px-3 py-1.5 text-[11px] font-bold text-white bg-amber-600 rounded-lg hover:bg-amber-500 transition-colors whitespace-nowrap"
+                          >
+                            Mark Fine Paid
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -277,6 +298,14 @@ export default function Transactions() {
                       className="mt-3 w-full py-2 text-xs font-bold text-white bg-emerald-700 rounded-lg hover:bg-emerald-600 transition-colors"
                     >
                       {txn.isOverdue ? 'Return + Clear Fine' : 'Mark Returned'}
+                    </button>
+                  )}
+                  {txn.isReturned && txn.fineDue > 0 && (
+                    <button
+                      onClick={() => handleMarkFinePaid(txn)}
+                      className="mt-3 w-full py-2 text-xs font-bold text-white bg-amber-600 rounded-lg hover:bg-amber-500 transition-colors"
+                    >
+                      Mark Fine Paid
                     </button>
                   )}
                 </div>

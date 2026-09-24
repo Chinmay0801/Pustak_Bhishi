@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getActiveTransactions, getPastTransactions, returnBook, getBooks } from '../services/bookService';
 import { useAuth } from '../context/AuthContext';
+import { isContributedBy } from '../lib/members';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -11,12 +12,12 @@ function fmtDate(value) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function OverdueTag({ daysBorrowed }) {
-  const daysLeft = 90 - daysBorrowed;
-  if (daysBorrowed > 90) {
+function OverdueTag({ txn }) {
+  const { daysLeft, daysOverdue } = txn;
+  if (txn.isOverdue) {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400 text-xs font-bold rounded-full">
-        🔴 Overdue by {daysBorrowed - 90} day{daysBorrowed - 90 !== 1 ? 's' : ''} — Fine ₹20 applicable
+        🔴 Overdue by {daysOverdue} day{daysOverdue !== 1 ? 's' : ''} — Fine ₹{txn.fineDue} applicable
       </span>
     );
   }
@@ -69,7 +70,7 @@ function ActiveTab({ transactions, onReturn, loading }) {
                 <span>⏰ Due: {fmtDate(txn.dueDate)}</span>
               </div>
               <div className="mt-2.5">
-                <OverdueTag daysBorrowed={txn.daysBorrowed || 0} />
+                <OverdueTag txn={txn} />
               </div>
             </div>
           </div>
@@ -108,7 +109,6 @@ function HistoryTab({ history, loading }) {
   return (
     <div className="space-y-3">
       {history.map(txn => {
-        const borrowedDate = txn.borrowedAt?.toDate ? txn.borrowedAt.toDate() : new Date(txn.borrowedAt ?? 0);
         const returnedDate = txn.returnedAt?.toDate ? txn.returnedAt.toDate() : new Date(txn.returnedAt ?? 0);
         const dueDate = txn.dueDate?.toDate ? txn.dueDate.toDate() : new Date(txn.dueDate ?? 0);
         const returnedOnTime = txn.returnedAt && returnedDate <= dueDate;
@@ -124,6 +124,9 @@ function HistoryTab({ history, loading }) {
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
                   {fmtDate(txn.borrowedAt)} → {fmtDate(txn.returnedAt)}
                 </p>
+                {txn.fineDue > 0 && (
+                  <p className="text-xs font-semibold text-red-600 dark:text-red-400 mt-0.5">Fine ₹{txn.fineDue} unpaid — pay the library admin</p>
+                )}
               </div>
             </div>
             <span className={`shrink-0 px-2.5 py-1 text-xs font-bold rounded-full border
@@ -169,6 +172,9 @@ function ContributedTab({ books, loading }) {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-[var(--text-primary)] truncate">{book.title}</p>
             <p className="text-xs text-[var(--text-secondary)]">by {book.author}</p>
+            {book.status === 'borrowed' && book.borrowedByName && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 truncate">📖 With {book.borrowedByName}</p>
+            )}
             <div className="mt-2 flex items-center justify-between">
               <span className="text-[10px] font-mono text-[var(--text-muted)]">#{book.bookNumber || 'N/A'}</span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border
@@ -198,6 +204,7 @@ export default function MyBooks() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const { currentUser, userProfile } = useAuth();
 
   function showToast(msg, type = 'success') {
@@ -205,7 +212,7 @@ export default function MyBooks() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  async function fetchActive() {
+  const fetchActive = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -214,48 +221,47 @@ export default function MyBooks() {
         getBooks(),
       ]);
       setTransactions(data);
-      const donated = allBooks.filter(
-        b => b.contributor?.trim().toLowerCase() === userProfile?.displayName?.trim().toLowerCase()
-      );
-      setDonatedBooks(donated);
+      const me = { uid: currentUser.uid, displayName: userProfile?.displayName };
+      setDonatedBooks(allBooks.filter(b => isContributedBy(b, me)));
     } catch (err) {
       console.error('Failed to load my books:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
-
-  async function fetchHistory() {
-    setHistoryLoading(true);
-    try {
-      const data = await getPastTransactions(currentUser.uid);
-      setHistory(data);
-    } catch (err) {
-      console.error('Failed to load history:', err);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }
+  }, [currentUser.uid, userProfile?.displayName]);
 
   useEffect(() => {
     fetchActive();
-  }, [currentUser]);
+  }, [fetchActive]);
 
-  // Lazy-load history on tab switch
+  // Lazy-load history on first visit to the tab (and after a return)
   useEffect(() => {
-    if (activeTab === 'history' && history.length === 0 && !historyLoading) {
-      fetchHistory();
-    }
-  }, [activeTab]);
+    if (activeTab !== 'history' || historyLoaded) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    getPastTransactions(currentUser.uid)
+      .then((data) => { if (!cancelled) setHistory(data); })
+      .catch((err) => console.error('Failed to load history:', err))
+      .finally(() => {
+        if (!cancelled) {
+          setHistoryLoading(false);
+          setHistoryLoaded(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [activeTab, historyLoaded, currentUser.uid]);
 
   async function handleReturn(txn) {
     if (!window.confirm(`Return "${txn.bookTitle}"?`)) return;
     try {
       await returnBook(txn.bookId, txn.id);
-      showToast(`"${txn.bookTitle}" returned!`);
+      showToast(txn.isOverdue
+        ? `"${txn.bookTitle}" returned. Fine ₹${txn.fineDue} is due — pay the library admin.`
+        : `"${txn.bookTitle}" returned!`);
       // Refresh active list + clear history cache so it re-loads
       setHistory([]);
+      setHistoryLoaded(false);
       fetchActive();
     } catch (err) {
       showToast('Failed to return: ' + err.message, 'error');

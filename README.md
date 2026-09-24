@@ -49,6 +49,12 @@ A complete web application built to manage a Marathi library of 800+ books. Buil
 - **Data Parsing:** SheetJS (`xlsx`) for client-side Excel ingestion & CSV exporting.
 - **Hosting / CI-CD:** Vercel
 
+## 📁 Project Structure & Utility Scripts
+
+- `src/`: Contains all React components, pages, context, and Firebase service integrations.
+- `scripts/`: Node.js utility scripts for database management (`import_members.js`, `import_excel_invites.js`, `wipe_books.js`).
+- `Data/`: Contains legacy data like `Book_Data_final.xlsx` used for bulk imports.
+
 ## 👩‍💻 How to Run Locally
 
 1. Clone the repository:
